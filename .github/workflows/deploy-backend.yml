@@ -1,0 +1,57 @@
+# Hasiru Shaale adoption: sends backend/Code.gs to Apps Script and makes it live
+# (same as Deploy -> Manage deployments -> New version; the /exec link stays the same).
+# Runs only when files in backend/ change on main, or by hand from the Actions tab.
+# Needs two repository secrets: CLASPRC_JSON (sign-in key) and DEPLOYMENT_ID. Until they exist, it does nothing.
+name: Backend - deploy to Apps Script
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**']
+  workflow_dispatch:
+    inputs:
+      check_only:
+        description: "Only compare GitHub's Code.gs with the live Apps Script code (changes nothing)"
+        type: boolean
+        default: true
+concurrency: backend-deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLASPRC: ${{ secrets.CLASPRC_JSON }}
+      DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Key not set up yet
+        if: env.CLASPRC == '' || env.DEPLOYMENT_ID == ''
+        working-directory: .
+        run: echo "Secrets CLASPRC_JSON / DEPLOYMENT_ID are not saved yet, so nothing was sent to Apps Script."
+      - uses: actions/checkout@v4
+        if: env.CLASPRC != '' && env.DEPLOYMENT_ID != ''
+      - uses: actions/setup-node@v4
+        if: env.CLASPRC != '' && env.DEPLOYMENT_ID != ''
+        with:
+          node-version: 20
+      - name: Install the Apps Script tool and sign in
+        if: env.CLASPRC != '' && env.DEPLOYMENT_ID != ''
+        run: |
+          npm install -g @google/clasp@2.4.2
+          printf '%s' "$CLASPRC" > ~/.clasprc.json
+      - name: Compare with the live Apps Script code
+        if: env.CLASPRC != '' && env.DEPLOYMENT_ID != ''
+        run: |
+          mkdir -p /tmp/live && cp .clasp.json /tmp/live/
+          (cd /tmp/live && clasp pull && echo "Files in Apps Script:" && ls)
+          # clasp saves the downloaded Code.gs as Code.js; compare ignoring line-ending differences
+          LIVE=/tmp/live/Code.js; [ -f /tmp/live/Code.gs ] && LIVE=/tmp/live/Code.gs
+          # ignore Windows line endings and a missing newline at the very end
+          sed -e 's/\r$//' -e '$a\' Code.gs > /tmp/a.gs; sed -e 's/\r$//' -e '$a\' "$LIVE" > /tmp/b.gs
+          if diff -q /tmp/a.gs /tmp/b.gs; then echo "SAME: GitHub Code.gs matches the live Apps Script code."; else echo "DIFFERENT: GitHub Code.gs is not the same as the live Apps Script code."; diff /tmp/a.gs /tmp/b.gs | head -40; fi
+      - name: Send to Apps Script and make it live
+        if: env.CLASPRC != '' && env.DEPLOYMENT_ID != '' && (github.event_name == 'push' || inputs.check_only == false)
+        run: |
+          clasp push -f
+          clasp deploy -i "$DEPLOYMENT_ID" -d "GitHub ${GITHUB_SHA::7}"
+          grep -o "APP_VERSION = '[^']*'" Code.gs
