@@ -75,7 +75,7 @@
 <title>Hasiru Shaale · School adoption</title>
 
 <!-- ===== START P0.0 Version ===== -->
-<meta name="app-version" content="2026-11-19 v9.5">
+<meta name="app-version" content="2026-11-19 v9.6">
 <!-- ===== END P0.0 ===== -->
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1072,17 +1072,18 @@ function visitFormHtml(s) {
     '<label class="f">If some died, why?</label>' + ticks('sWhyDied', L['Why saplings died'] || []) +
     '<label class="f" data-if="sWhyDiedOther">Other reason' + txt('sWhyDiedOther') + '</label>' +
     '<div class="form"><label>Do they ask for replacement for dead plants?' + sel('sReplace', yn) + '</label>' +
-    '<label data-if="sReplaceN">If yes, how many?' + num('sReplaceN') + '</label></div></div>';
+    '<label data-if="sReplaceN">If yes, how many?' + num('sReplaceN') + '</label></div>' +
+    // v9.6: watering belongs to the saplings only
+    '<h4 style="margin-top:12px">Watering</h4><div class="form">' +
+    '<label>Who waters the plants?' + sel('wWho', L['Who waters the plants']) + '</label>' +
+    '<label data-if="wWhoOther">Name or designation' + txt('wWhoOther') + '</label>' +
+    '<label data-if="wOften">How often do they water the plants?' + sel('wOften', L['How often watered']) + '</label>' +
+    '<label data-if="wSource">Where does the water for the plants come from?' + txt('wSource') + '</label></div></div>';
   // v9.5: the seeds part only counts seeds (given, sown into packets, grew into saplings)
   h += '<div class="box" id="vf-seed"><h4>Drumstick seeds</h4>' +
     '<div class="nums"><label class="f">Number of seeds given' + num('dGiven') + '</label>' +
     '<label class="f">Number of seeds sown into packets by the school' + num('dSown') + '</label>' +
     '<label class="f">Number of seeds that grew into saplings' + num('dGrew') + '</label></div></div>';
-  h += '<div class="box" id="vf-water"><h4>Watering (all plants)</h4><div class="form">' +
-    '<label>Who waters the plants?' + sel('wWho', L['Who waters the plants']) + '</label>' +
-    '<label data-if="wWhoOther">Name or designation' + txt('wWhoOther') + '</label>' +
-    '<label data-if="wOften">How often do they water the plants?' + sel('wOften', L['How often watered']) + '</label>' +
-    '<label data-if="wSource">Where does the water for the plants come from?' + txt('wSource') + '</label></div></div>';
   // B
   h += '<div class="section-h">' + WORDS.partB + '</div>' +
     '<div class="act-row act-head"><span>Games or Awareness</span><span>Game or topic</span><span>Minutes</span><span>Number of students</span><span>Number of teachers who joined</span></div>' +
@@ -1200,7 +1201,7 @@ function fillVisitForm(v) {
 // shows or hides questions, the meaning of the chosen health, and the red warning when more were planted than given
 function visitShow() {
   var v = readVisitForm(), show = function (sel, on) { Array.prototype.forEach.call(document.querySelectorAll(sel), function (el) { el.hidden = !on; }); };
-  show('#vf-sap', v.saplingsTicked); show('#vf-seed', v.seedsTicked); show('#vf-water', v.saplingsTicked || v.seedsTicked);
+  show('#vf-sap', v.saplingsTicked); show('#vf-seed', v.seedsTicked);
   show('[data-if=sWhyNot]', v.sPlantedYN === 'No');
   show('[data-if=sWhyDiedOther]', (v.sWhyDied || []).indexOf('Other') >= 0);
   show('[data-if=sReplaceN]', v.sReplace === 'Yes');

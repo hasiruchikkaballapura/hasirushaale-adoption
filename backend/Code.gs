@@ -119,7 +119,7 @@
  */
 
 // ===== START 0.0 Version =====
-var APP_VERSION = '2026-11-19 v9.5';
+var APP_VERSION = '2026-11-19 v9.6';
 // ===== END 0.0 =====
 
 
@@ -1400,8 +1400,9 @@ function saveVisit_(person, req) {
     // 'Why not sown', 'Health of saplings from seeds' and 'Where planted' are no longer asked; their old answers stay in the Sheet.
     'Seeds given': sed ? n(v.dGiven) : '', 'Seeds sown into packets': sed ? n(v.dSown) : '',
     'Seeds grew and planted': sed ? n(v.dGrew) : '',
-    'Who waters': (sap || sed) ? (v.wWho || '') : '', 'Who waters (other)': (sap || sed) && v.wWho === 'Other' ? String(v.wWhoOther || '') : '',
-    'How often watered': (sap || sed) && !nobody ? (v.wOften || '') : '', 'Water source': (sap || sed) && !nobody ? String(v.wSource || '') : '',
+    // v9.6: watering is asked for saplings only
+    'Who waters': sap ? (v.wWho || '') : '', 'Who waters (other)': sap && v.wWho === 'Other' ? String(v.wWhoOther || '') : '',
+    'How often watered': sap && !nobody ? (v.wOften || '') : '', 'Water source': sap && !nobody ? String(v.wSource || '') : '',
     'Activities': acts.join('\n'),
     'Miracle of Mind session': v.momYN === 'Yes' || v.momYN === 'No' ? v.momYN : '',
     'Miracle of Mind students': mom ? n(v.momStudents) : '', 'Miracle of Mind teachers': mom ? n(v.momTeachers) : '',
