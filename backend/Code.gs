@@ -119,7 +119,7 @@
  */
 
 // ===== START 0.0 Version =====
-var APP_VERSION = '2026-11-05 v9.4';
+var APP_VERSION = '2026-11-19 v9.5';
 // ===== END 0.0 =====
 
 
@@ -173,7 +173,8 @@ var APP_TABS = {
              'Health of saplings from seeds', 'Where planted',
              'Who waters', 'Who waters (other)', 'How often watered', 'Water source',
              'Activities', 'Remarks ticks', 'Remarks', 'Photo links',
-             'Saved on', 'Edited on', 'Deleted', 'A4 upload ID', 'Alert done by', 'Alert done on', 'Form data (app)'],
+             'Saved on', 'Edited on', 'Deleted', 'A4 upload ID', 'Alert done by', 'Alert done on', 'Form data (app)',
+             'Miracle of Mind session', 'Miracle of Mind students', 'Miracle of Mind teachers', 'Miracle of Mind others'],
   'Corrections': ['Correction ID', 'School ID', 'Field', 'Species', 'Old value', 'New value',
                   'Proposed by', 'Proposed on', 'Status', 'Approved by', 'Approved on', 'UDISE Code', 'School Name'],
   'Remarks': ['Remark ID', 'Volunteer', 'Kind', 'Remark', 'About date', 'Written by', 'Written on'],
@@ -1378,10 +1379,12 @@ function saveVisit_(person, req) {
   var n = function (x) { var k = num_(x); return k === null || k < 0 ? '' : k; };
   var yes = function (b) { return b ? 'Yes' : ''; };
   var list = function (a) { return (a || []).filter(String).join(', '); };
-  var acts = (v.acts || []).filter(function (a) { return a && (a.type || a.what || a.minutes || a.boys || a.girls); }).map(function (a) {
-    return [a.type || '-', a.what || '-', (a.minutes ? a.minutes + ' min' : ''), (a.boys ? 'boys ' + a.boys : ''), (a.girls ? 'girls ' + a.girls : ''),
-            (a.teachers ? 'teachers ' + a.teachers : ''), (a.grades ? 'grades ' + a.grades : '')].filter(String).join(', ');
+  // v9.5: each row = Games or Awareness, game or topic, minutes, number of students, number of teachers who joined
+  var acts = (v.acts || []).filter(function (a) { return a && (a.what || a.minutes || a.students || a.teachers); }).map(function (a) {
+    return [a.type || '-', a.what || '-', (a.minutes ? a.minutes + ' min' : ''), (a.students ? 'students ' + a.students : ''),
+            (a.teachers ? 'teachers ' + a.teachers : '')].filter(String).join(', ');
   });
+  var mom = v.momYN === 'Yes';
   var sap = !!v.saplingsTicked, sed = !!v.seedsTicked, nobody = v.wWho === 'Nobody';
   var row = {
     'Visit date': new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])),
@@ -1393,12 +1396,17 @@ function saveVisit_(person, req) {
     'Health of surviving saplings': sap ? (v.sHealth || '') : '', 'Why died': sap ? list(v.sWhyDied) : '',
     'Why died (other)': sap ? String(v.sWhyDiedOther || '') : '',
     'Replacement asked': sap ? (v.sReplace || '') : '', 'Replacement how many': sap && v.sReplace === 'Yes' ? n(v.sReplaceN) : '',
-    'Seeds given': sed ? n(v.dGiven) : '', 'Seeds sown into packets': sed ? (v.dSown || '') : '',
-    'Why not sown': sed ? String(v.dWhyNot || '') : '', 'Seeds grew and planted': sed ? n(v.dGrew) : '',
-    'Health of saplings from seeds': sed ? (v.dHealth || '') : '', 'Where planted': sed ? String(v.dWhere || '') : '',
+    // v9.5: seeds = three numbers only (given, sown into packets, grew into saplings).
+    // 'Why not sown', 'Health of saplings from seeds' and 'Where planted' are no longer asked; their old answers stay in the Sheet.
+    'Seeds given': sed ? n(v.dGiven) : '', 'Seeds sown into packets': sed ? n(v.dSown) : '',
+    'Seeds grew and planted': sed ? n(v.dGrew) : '',
     'Who waters': (sap || sed) ? (v.wWho || '') : '', 'Who waters (other)': (sap || sed) && v.wWho === 'Other' ? String(v.wWhoOther || '') : '',
     'How often watered': (sap || sed) && !nobody ? (v.wOften || '') : '', 'Water source': (sap || sed) && !nobody ? String(v.wSource || '') : '',
-    'Activities': acts.join('\n'), 'Remarks ticks': list(v.rTicks), 'Remarks': String(v.remarks || '').slice(0, 3000),
+    'Activities': acts.join('\n'),
+    'Miracle of Mind session': v.momYN === 'Yes' || v.momYN === 'No' ? v.momYN : '',
+    'Miracle of Mind students': mom ? n(v.momStudents) : '', 'Miracle of Mind teachers': mom ? n(v.momTeachers) : '',
+    'Miracle of Mind others': mom ? n(v.momOthers) : '',
+    'Remarks ticks': list(v.rTicks), 'Remarks': String(v.remarks || '').slice(0, 3000),
     'Form data (app)': JSON.stringify(v).slice(0, 45000)
   };
 
@@ -1498,7 +1506,10 @@ function visitsOf_(person, schoolId) {
       enteredBy: email_(get_(r, 'Entered by')), source: clean_(get_(r, 'Source')),
       given: num_(get_(r, 'Saplings given')), planted: num_(get_(r, 'Planted')), alive: num_(get_(r, 'Alive now')),
       seedsGiven: num_(get_(r, 'Seeds given')), seedsGrew: num_(get_(r, 'Seeds grew and planted')),
+      seedsSown: num_(get_(r, 'Seeds sown into packets')),
       health: clean_(get_(r, 'Health of surviving saplings')),
+      mom: clean_(get_(r, 'Miracle of Mind session')), momStudents: num_(get_(r, 'Miracle of Mind students')),
+      momTeachers: num_(get_(r, 'Miracle of Mind teachers')), momOthers: num_(get_(r, 'Miracle of Mind others')),
       activities: String(get_(r, 'Activities') || ''), ticks: clean_(get_(r, 'Remarks ticks')), remarks: clean_(get_(r, 'Remarks')),
       photos: String(get_(r, 'Photo links') || '').split(/\n/).filter(String).length,
       canEdit: canEditVisit_(person, r), form: form

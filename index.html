@@ -75,7 +75,7 @@
 <title>Hasiru Shaale · School adoption</title>
 
 <!-- ===== START P0.0 Version ===== -->
-<meta name="app-version" content="2026-11-05 v9.4">
+<meta name="app-version" content="2026-11-19 v9.5">
 <!-- ===== END P0.0 ===== -->
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -168,7 +168,7 @@ textarea { width: 100%; min-height: 70px; }
 .def { font-size: 13px; color: var(--muted); line-height: 1.4; }
 .def b { color: var(--ink); }
 .section-h { font-size: 17px; font-weight: 700; color: var(--accent); margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 2px solid var(--accent); }
-.act-row { display: grid; grid-template-columns: 120px 1fr 80px 70px 70px 90px 90px; gap: 6px; margin-bottom: 6px; }
+.act-row { display: grid; grid-template-columns: 130px 1fr 90px 130px 170px; gap: 6px; margin-bottom: 6px; }
 .act-head { font-size: 12px; color: var(--muted); }
 @media (max-width: 760px) { .act-row { grid-template-columns: 1fr 1fr; padding-bottom: 8px; border-bottom: 1px dashed var(--line); } .act-head { display: none; } }
 .right { text-align: right; }
@@ -368,8 +368,9 @@ var WORDS = {
   partA: 'A · Sapling Health / Seed Status',
   partATick: 'Tick what the school received. Tick both if both.',
   partB: 'B · Engagement with schools (Awareness & Games)',
-  partC: 'C · Any remarks',
-  partCTick: 'This is about (tick all that apply)',
+  partC: 'C · Miracle of Mind session',
+  partD: 'D · Any remarks',
+  partDTick: 'This is about (tick all that apply)',
   oldData: 'Any old data to update?',
   health: {
     Healthy: 'New tender leaves are growing. A tree guard is fitted, or there is a proper compound wall. A water source is available and looked after.',
@@ -1072,13 +1073,11 @@ function visitFormHtml(s) {
     '<label class="f" data-if="sWhyDiedOther">Other reason' + txt('sWhyDiedOther') + '</label>' +
     '<div class="form"><label>Do they ask for replacement for dead plants?' + sel('sReplace', yn) + '</label>' +
     '<label data-if="sReplaceN">If yes, how many?' + num('sReplaceN') + '</label></div></div>';
-  h += '<div class="box" id="vf-seed"><h4>Drumstick seeds</h4><div class="form">' +
-    '<label>Number of seeds given' + num('dGiven') + '</label>' +
-    '<label>Seeds sown into packets by the school?' + sel('dSown', yn) + '</label>' +
-    '<label class="wide" data-if="dWhyNot">If no, why not?' + txt('dWhyNot') + '</label>' +
-    '<label class="wide">Out of the seeds given, how many grew into saplings and were planted?' + num('dGrew') + '</label>' +
-    '<label class="wide">Health of the saplings grown from the seeds' + sel('dHealth', L['Health']) + def('dHealth') + '</label>' +
-    '<label class="wide">Where were these saplings planted?' + txt('dWhere') + '</label></div></div>';
+  // v9.5: the seeds part only counts seeds (given, sown into packets, grew into saplings)
+  h += '<div class="box" id="vf-seed"><h4>Drumstick seeds</h4>' +
+    '<div class="nums"><label class="f">Number of seeds given' + num('dGiven') + '</label>' +
+    '<label class="f">Number of seeds sown into packets by the school' + num('dSown') + '</label>' +
+    '<label class="f">Number of seeds that grew into saplings' + num('dGrew') + '</label></div></div>';
   h += '<div class="box" id="vf-water"><h4>Watering (all plants)</h4><div class="form">' +
     '<label>Who waters the plants?' + sel('wWho', L['Who waters the plants']) + '</label>' +
     '<label data-if="wWhoOther">Name or designation' + txt('wWhoOther') + '</label>' +
@@ -1086,10 +1085,16 @@ function visitFormHtml(s) {
     '<label data-if="wSource">Where does the water for the plants come from?' + txt('wSource') + '</label></div></div>';
   // B
   h += '<div class="section-h">' + WORDS.partB + '</div>' +
-    '<div class="act-row act-head"><span>Games or Awareness</span><span>Game or topic</span><span>Minutes</span><span>Boys</span><span>Girls</span><span>Number of teachers who joined</span><span>Grades</span></div>' +
+    '<div class="act-row act-head"><span>Games or Awareness</span><span>Game or topic</span><span>Minutes</span><span>Number of students</span><span>Number of teachers who joined</span></div>' +
     '<div id="vf-acts"></div><button class="btn sm" type="button" id="vf-actadd">+ Add a row</button>';
-  // C
-  h += '<div class="section-h">' + WORDS.partC + '</div><p class="small">' + WORDS.partCTick + '</p>' + ticks('rTicks', L['Remarks ticks'] || []) +
+  // C (v9.5)
+  h += '<div class="section-h">' + WORDS.partC + '</div>' +
+    '<div class="form"><label>Session conducted?' + sel('momYN', yn) + '</label></div>' +
+    '<div class="nums" data-if="momNums"><label class="f">Number of students involved' + num('momStudents') + '</label>' +
+    '<label class="f">Number of teachers involved' + num('momTeachers') + '</label>' +
+    '<label class="f">Number of others involved' + num('momOthers') + '</label></div>';
+  // D
+  h += '<div class="section-h">' + WORDS.partD + '</div><p class="small">' + WORDS.partDTick + '</p>' + ticks('rTicks', L['Remarks ticks'] || []) +
     '<textarea data-k="remarks" placeholder="Write the details here"></textarea>' +
     '<div class="right"><button class="link" type="button" id="vf-olddata">' + WORDS.oldData + '</button></div>';
   // photos and save
@@ -1106,8 +1111,7 @@ function actRow(a) {
   var L = APP.school.lists['Activity type'] || ['Games', 'Awareness'];
   d.innerHTML = '<select data-a="type" aria-label="Games or Awareness">' + opts(L, a.type) + '</select>' +
     '<input type="text" data-a="what" placeholder="Game or topic" value="' + esc(a.what || '') + '">' +
-    ['minutes', 'boys', 'girls', 'teachers'].map(function (k) { return '<input type="number" min="0" inputmode="numeric" data-a="' + k + '" placeholder="' + { minutes: 'Minutes', boys: 'Boys', girls: 'Girls', teachers: 'Teachers' }[k] + '" value="' + esc(a[k] || '') + '">'; }).join('') +
-    '<input type="text" data-a="grades" placeholder="Grades" value="' + esc(a.grades || '') + '">';
+    ['minutes', 'students', 'teachers'].map(function (k) { return '<input type="number" min="0" inputmode="numeric" data-a="' + k + '" placeholder="' + { minutes: 'Minutes', students: 'Students', teachers: 'Teachers' }[k] + '" aria-label="' + { minutes: 'Minutes', students: 'Number of students', teachers: 'Number of teachers who joined' }[k] + '" value="' + esc(a[k] || '') + '">'; }).join('');
   document.getElementById('vf-acts').appendChild(d);
   d.addEventListener('input', visitChanged);
   d.addEventListener('change', visitChanged);
@@ -1182,7 +1186,7 @@ function readVisitForm() {
   });
   v.acts = Array.prototype.map.call(f.querySelectorAll('#vf-acts .act-row'), function (r) {
     var a = {}; Array.prototype.forEach.call(r.querySelectorAll('[data-a]'), function (el) { a[el.dataset.a] = el.value; }); return a;
-  }).filter(function (a) { return a.what || a.minutes || a.boys || a.girls || a.teachers || a.grades; });
+  }).filter(function (a) { return a.what || a.minutes || a.students || a.teachers; });
   return v;
 }
 function fillVisitForm(v) {
@@ -1200,10 +1204,10 @@ function visitShow() {
   show('[data-if=sWhyNot]', v.sPlantedYN === 'No');
   show('[data-if=sWhyDiedOther]', (v.sWhyDied || []).indexOf('Other') >= 0);
   show('[data-if=sReplaceN]', v.sReplace === 'Yes');
-  show('[data-if=dWhyNot]', v.dSown === 'No');
+  show('[data-if=momNums]', v.momYN === 'Yes');
   show('[data-if=wWhoOther]', v.wWho === 'Other');
   show('[data-if=wOften]', v.wWho !== 'Nobody'); show('[data-if=wSource]', v.wWho !== 'Nobody');
-  ['sHealth', 'dHealth'].forEach(function (k) {
+  ['sHealth'].forEach(function (k) {
     var el = document.getElementById('def-' + k);
     if (el) el.innerHTML = v[k] && WORDS.health[v[k]] ? '<b>' + esc(v[k]) + ':</b> ' + esc(WORDS.health[v[k]]) : '';
   });
@@ -1257,7 +1261,9 @@ function visitHistory(s) {
   return '<p class="small" style="margin:14px 0 4px"><b>Visits recorded</b></p>' + list.map(function (v, i) {
     var nums = [];
     if (v.given !== null || v.planted !== null) nums.push('Saplings: given ' + fmtN(v.given) + ', planted ' + fmtN(v.planted) + ', alive ' + fmtN(v.alive));
-    if (v.seedsGrew !== null) nums.push('Seeds: ' + fmtN(v.seedsGiven) + ' given, ' + fmtN(v.seedsGrew) + ' grew and planted');
+    if (v.seedsGiven !== null || v.seedsGrew !== null) nums.push('Seeds: ' + fmtN(v.seedsGiven) + ' given' + (v.seedsSown !== null ? ', ' + fmtN(v.seedsSown) + ' sown' : '') + ', ' + fmtN(v.seedsGrew) + ' grew into saplings');
+    if (v.mom === 'Yes') nums.push('Miracle of Mind: students ' + fmtN(v.momStudents) + ', teachers ' + fmtN(v.momTeachers) + ', others ' + fmtN(v.momOthers));
+    else if (v.mom === 'No') nums.push('Miracle of Mind: not conducted');
     return '<div class="list-row"><b>' + esc(v.date) + '</b> · ' + esc(v.how) + ' · ' + esc(v.volunteer) + ' ' + chip(v.source === 'Self' ? 'Recorded by the volunteer' : v.source + ' (' + v.enteredBy + ')') +
       (nums.length ? '<div class="small">' + esc(nums.join(' · ')) + (v.health ? ' · ' + esc(v.health) : '') + '</div>' : '') +
       (v.activities ? '<div class="small" style="white-space:pre-line">' + esc(v.activities) + '</div>' : '') +
@@ -1516,7 +1522,7 @@ function loadDashboard() {
       tile(fmtN(t.alive), 'saplings alive', 'of ' + fmtN(t.planted) + ' planted') +
       tile(pct(t.alive, t.planted), 'survival: alive ÷ planted') +
       tile(pct(t.alive, t.given), 'survival: alive ÷ given') +
-      tile(fmtN(t.seedsGrew), 'seeds grew and were planted', 'of ' + fmtN(t.seedsGiven) + ' seeds given') +
+      tile(fmtN(t.seedsGrew), 'seeds grew into saplings', 'of ' + fmtN(t.seedsGiven) + ' seeds given') +
       tile(fmtN(t.notWilling), 'not willing to support') +
       '</div>';
     h += '<p class="small" style="margin-top:6px">Saplings and survival use each school\'s latest visit where saplings were ticked. A correction waiting for approval counts at once.</p>';
