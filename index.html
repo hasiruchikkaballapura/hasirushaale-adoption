@@ -357,7 +357,7 @@ var WORDS = {
   firstHelp: 'Reminders only. Do them when you are at the school.',
   locTitle: 'School location',
   photoTitle: 'School front photo',
-  bookTitle: 'Have you given the Hasiru Shaale book to the school?',
+  bookTitle: 'Hasiru Shaale Booklet given to the school?',
   formTitle: 'Physical form (A4)',
   formHelp: 'Download and print the form, fill it at the school, then take a clear photo of each side and upload it here. The office enters it into the app.',
   formDone: 'Uploaded. Thank you! The office will enter it.',
@@ -1097,6 +1097,10 @@ function visitFormHtml(s) {
   h += '<div class="section-h">' + WORDS.partD + '</div><p class="small">' + WORDS.partDTick + '</p>' + ticks('rTicks', L['Remarks ticks'] || []) +
     '<textarea data-k="remarks" placeholder="Write the details here"></textarea>' +
     '<div class="right"><button class="link" type="button" id="vf-olddata">' + WORDS.oldData + '</button></div>';
+  // v9.7: Before you leave (same three lines as the A4 form); ticked when already saved on this school page
+  var fs = s.first || {}, leave = function (done, words) { return '<div style="margin:4px 0">' + (done ? '<span style="color:var(--accent)">✓</span> ' : '<span class="small">☐</span> ') + words + (done ? '' : ' <span class="small">· not yet, see the top of this page</span>') + '</div>'; };
+  h += '<div class="box" id="vf-leave"><h4>Before you leave</h4>' +
+    leave(!!fs.location, 'School location updated / saved') + leave(!!fs.photo, 'Front photo of the school taken') + leave(/^y/i.test(fs.book || ''), 'Hasiru Shaale Booklet given') + '</div>';
   // photos and save
   h += '<div class="line"></div><label class="btn">📷 Add visit photos (optional, up to 5)<input type="file" id="vf-photos" accept="image/*" multiple hidden></label>' +
     '<span class="small" id="vf-pcount" style="margin-left:8px"></span><div class="thumbs" id="vf-thumbs"></div>' +
