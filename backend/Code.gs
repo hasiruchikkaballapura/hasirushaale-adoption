@@ -119,7 +119,7 @@
  */
 
 // ===== START 0.0 Version =====
-var APP_VERSION = '2026-11-19 v9.6';
+var APP_VERSION = '2026-11-22 v9.7';
 // ===== END 0.0 =====
 
 
@@ -216,7 +216,7 @@ var LISTS_START = {
   'Who waters the plants': ['Students', 'Teachers', 'Other', 'Nobody'],
   'How often watered': ['Daily', 'Few times a week', 'Weekly', 'Rarely'],
   'Activity type': ['Games', 'Awareness'],
-  'Remarks ticks': ['Pit digging / tree guard', 'Concern', 'Support', 'Highlights', 'Sharing', 'School not willing to support'],
+  'Remarks ticks': ['Pit digging / tree guard', 'Concern', 'Follow up', 'Support', 'Highlights', 'Sharing', 'School not willing to support'],
   'Call: who did you speak to': ['HM or principal', 'Alternative contact', 'Teacher', 'Other'],
   'Call: how did the call go': ['Spoke', 'No answer', 'Number not working', 'Call back later', 'Other'],
   'Remark kind': ['Positive', 'Concern', 'Other'],
@@ -769,7 +769,8 @@ function activityBySchool_() {
         seedsTicked: /^y/i.test(String(clean_(get_(r, 'Seeds ticked')))),
         given: num_(get_(r, 'Saplings given')), planted: num_(get_(r, 'Planted')),
         alive: num_(get_(r, 'Alive now')), dead: num_(get_(r, 'Dead')),
-        seedsGiven: num_(get_(r, 'Seeds given')), seedsGrew: num_(get_(r, 'Seeds grew and planted'))
+        seedsGiven: num_(get_(r, 'Seeds given')), seedsGrew: num_(get_(r, 'Seeds grew and planted')),
+        seedsSownYN: String(clean_(get_(r, 'Seeds sown into packets')) || '')
       };
     }
   });
@@ -1379,11 +1380,8 @@ function saveVisit_(person, req) {
   var n = function (x) { var k = num_(x); return k === null || k < 0 ? '' : k; };
   var yes = function (b) { return b ? 'Yes' : ''; };
   var list = function (a) { return (a || []).filter(String).join(', '); };
-  // v9.5: each row = Games or Awareness, game or topic, minutes, number of students, number of teachers who joined
-  var acts = (v.acts || []).filter(function (a) { return a && (a.what || a.minutes || a.students || a.teachers); }).map(function (a) {
-    return [a.type || '-', a.what || '-', (a.minutes ? a.minutes + ' min' : ''), (a.students ? 'students ' + a.students : ''),
-            (a.teachers ? 'teachers ' + a.teachers : '')].filter(String).join(', ');
-  });
+  // v9.7: Engagement = ticks only (Games, Awareness)
+  var acts = (v.actTicks || []).filter(function (a) { return a === 'Games' || a === 'Awareness'; });
   var mom = v.momYN === 'Yes';
   var sap = !!v.saplingsTicked, sed = !!v.seedsTicked, nobody = v.wWho === 'Nobody';
   var row = {
@@ -1398,15 +1396,15 @@ function saveVisit_(person, req) {
     'Replacement asked': sap ? (v.sReplace || '') : '', 'Replacement how many': sap && v.sReplace === 'Yes' ? n(v.sReplaceN) : '',
     // v9.5: seeds = three numbers only (given, sown into packets, grew into saplings).
     // 'Why not sown', 'Health of saplings from seeds' and 'Where planted' are no longer asked; their old answers stay in the Sheet.
-    'Seeds given': sed ? n(v.dGiven) : '', 'Seeds sown into packets': sed ? n(v.dSown) : '',
-    'Seeds grew and planted': sed ? n(v.dGrew) : '',
+    // v9.7: seeds = given (number), sown into packets (Yes/No), why not; 'Seeds grew and planted' no longer asked
+    'Seeds given': sed ? n(v.dGiven) : '', 'Seeds sown into packets': sed ? (v.dSown === 'Yes' || v.dSown === 'No' ? v.dSown : '') : '',
+    'Why not sown': sed && v.dSown === 'No' ? String(v.dWhyNot || '').slice(0, 500) : '',
     // v9.6: watering is asked for saplings only
     'Who waters': sap ? (v.wWho || '') : '', 'Who waters (other)': sap && v.wWho === 'Other' ? String(v.wWhoOther || '') : '',
     'How often watered': sap && !nobody ? (v.wOften || '') : '', 'Water source': sap && !nobody ? String(v.wSource || '') : '',
-    'Activities': acts.join('\n'),
+    'Activities': acts.join(', '),
     'Miracle of Mind session': v.momYN === 'Yes' || v.momYN === 'No' ? v.momYN : '',
     'Miracle of Mind students': mom ? n(v.momStudents) : '', 'Miracle of Mind teachers': mom ? n(v.momTeachers) : '',
-    'Miracle of Mind others': mom ? n(v.momOthers) : '',
     'Remarks ticks': list(v.rTicks), 'Remarks': String(v.remarks || '').slice(0, 3000),
     'Form data (app)': JSON.stringify(v).slice(0, 45000)
   };
@@ -1507,7 +1505,7 @@ function visitsOf_(person, schoolId) {
       enteredBy: email_(get_(r, 'Entered by')), source: clean_(get_(r, 'Source')),
       given: num_(get_(r, 'Saplings given')), planted: num_(get_(r, 'Planted')), alive: num_(get_(r, 'Alive now')),
       seedsGiven: num_(get_(r, 'Seeds given')), seedsGrew: num_(get_(r, 'Seeds grew and planted')),
-      seedsSown: num_(get_(r, 'Seeds sown into packets')),
+      seedsSownYN: clean_(get_(r, 'Seeds sown into packets')),
       health: clean_(get_(r, 'Health of surviving saplings')),
       mom: clean_(get_(r, 'Miracle of Mind session')), momStudents: num_(get_(r, 'Miracle of Mind students')),
       momTeachers: num_(get_(r, 'Miracle of Mind teachers')), momOthers: num_(get_(r, 'Miracle of Mind others')),
@@ -1668,6 +1666,7 @@ function alertKinds_(ticks) {
   var t = String(ticks || ''), kinds = [];
   if (/pit digging|tree guard/i.test(t)) kinds.push('Pit digging / tree guard');
   if (/concern/i.test(t)) kinds.push('Concern');
+  if (/follow.?up/i.test(t)) kinds.push('Follow up');   // v9.7
   return kinds;
 }
 function alerts_(person) {
@@ -1885,7 +1884,7 @@ function dashboard_(f) {
   var all = allSchools_();
   var level = f.hobli ? 'gp' : f.taluk ? 'hobli' : 'taluk';
   var pick = all.filter(function (s) { return (!f.taluk || s.taluk === f.taluk) && (!f.hobli || s.hobli === f.hobli); });
-  var blank = function () { return { schools: 0, adopted: 0, visited: 0, given: 0, planted: 0, alive: 0, seedsGiven: 0, seedsGrew: 0, notWilling: 0 }; };
+  var blank = function () { return { schools: 0, adopted: 0, visited: 0, given: 0, planted: 0, alive: 0, seedsGiven: 0, seedsGrew: 0, seedsSown: 0, notWilling: 0 }; };
   var total = blank(), rows = {};
   pick.forEach(function (s) {
     var r = rows[s[level] || '-'] = rows[s[level] || '-'] || blank();
@@ -1901,9 +1900,11 @@ function dashboard_(f) {
         t.planted += L.planted || 0;
         t.alive += L.alive || 0;
       }
-      if (L && L.seedsTicked && L.seedsGrew !== null) {
+      // v9.7: seeds = given + whether the school sowed them into packets (Yes/No)
+      if (L && L.seedsTicked) {
         t.seedsGiven += L.seedsGiven !== null ? L.seedsGiven : (s.seeds || 0);
         t.seedsGrew += L.seedsGrew || 0;
+        if (/^y/i.test(L.seedsSownYN)) t.seedsSown++;
       }
     });
   });

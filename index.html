@@ -75,7 +75,7 @@
 <title>Hasiru Shaale · School adoption</title>
 
 <!-- ===== START P0.0 Version ===== -->
-<meta name="app-version" content="2026-11-19 v9.6">
+<meta name="app-version" content="2026-11-22 v9.7">
 <!-- ===== END P0.0 ===== -->
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -732,7 +732,7 @@ function callBox(s) {
     '<label>Next visit planned (optional)<input type="date" id="cnext" data-keep="call.next" min="' + todayIST() + '"></label>' +
     '<label class="wide">Notes<textarea id="cnotes" data-keep="call.notes" placeholder="Anything worth noting"></textarea></label>' +
     '<div class="wide"><span class="small">Tick if the call was about (write the details in the notes):</span><div class="ticks">' +
-    '<label><input type="checkbox" id="cpit" data-keep="call.pit"> Pit digging / tree guard</label><label><input type="checkbox" id="cconcern" data-keep="call.concern"> Concern</label></div></div>' +
+    '<label><input type="checkbox" id="cpit" data-keep="call.pit"> Pit digging / tree guard</label><label><input type="checkbox" id="cconcern" data-keep="call.concern"> Concern</label><label><input type="checkbox" id="cfollow" data-keep="call.follow"> Follow up</label></div></div>' +
     '<label class="check wide"><input type="checkbox" id="cnot" data-keep="call.not"> <span><b>' + WORDS.notWilling + '</b><br><span class="small">Write the reason in the notes.</span></span></label>' +
     '</div><div id="cmsg"></div><button class="btn primary" type="button" id="csave">Save call</button> <button class="btn" type="button" id="ccancel">Cancel</button></div>';
   if (s.calls && s.calls.length) {
@@ -766,6 +766,7 @@ function wireCall() {
     var ticks = [];
     if (document.getElementById('cpit').checked) ticks.push('Pit digging / tree guard');
     if (document.getElementById('cconcern').checked) ticks.push('Concern');
+    if (document.getElementById('cfollow').checked) ticks.push('Follow up');
     var call = { schoolId: s.id, date: v('cdate'), who: v('cwho'), whoOther: v('cwhoo'), how: v('chow'), howOther: v('chowo'), next: v('cnext'), notes: v('cnotes'), notWilling: not, ticks: ticks };
     apiCall('saveCall', call).then(function (res) {
       btn.disabled = false; btn.textContent = 'Save call';
@@ -1058,7 +1059,7 @@ function visitFormHtml(s) {
   h += '<div id="vdraftmsg"></div>';
   h += '<div class="form"><label>Date of the visit *<input type="date" data-k="date" max="' + todayIST() + '"></label>' +
     '<label>How did the visit go? *' + sel('how', L['How did the visit go']) + '</label>' +
-    '<label class="wide">Who all accompanied you?' + txt('accompanied', 'Names and number of people') + '</label></div>';
+    '<label class="wide">Who all accompanied you?' + txt('accompanied', 'Names of people') + '</label></div>';
   // A
   h += '<div class="section-h">' + WORDS.partA + '</div><p class="small">' + WORDS.partATick + '</p>' +
     '<div class="ticks"><label><input type="checkbox" data-bool="saplingsTicked"> Saplings</label><label><input type="checkbox" data-bool="seedsTicked"> Seeds</label></div>';
@@ -1079,21 +1080,19 @@ function visitFormHtml(s) {
     '<label data-if="wWhoOther">Name or designation' + txt('wWhoOther') + '</label>' +
     '<label data-if="wOften">How often do they water the plants?' + sel('wOften', L['How often watered']) + '</label>' +
     '<label data-if="wSource">Where does the water for the plants come from?' + txt('wSource') + '</label></div></div>';
-  // v9.5: the seeds part only counts seeds (given, sown into packets, grew into saplings)
-  h += '<div class="box" id="vf-seed"><h4>Drumstick seeds</h4>' +
-    '<div class="nums"><label class="f">Number of seeds given' + num('dGiven') + '</label>' +
-    '<label class="f">Number of seeds sown into packets by the school' + num('dSown') + '</label>' +
-    '<label class="f">Number of seeds that grew into saplings' + num('dGrew') + '</label></div></div>';
+  // v9.7: seeds = number given, sown into packets Yes/No, and why not
+  h += '<div class="box" id="vf-seed"><h4>Drumstick seeds</h4><div class="form">' +
+    '<label>Number of seeds given' + num('dGiven') + '</label>' +
+    '<label>Seeds sown into packets by the school?' + sel('dSown', yn) + '</label>' +
+    '<label class="wide" data-if="dWhyNot">If no, why not?' + txt('dWhyNot') + '</label></div></div>';
   // B
-  h += '<div class="section-h">' + WORDS.partB + '</div>' +
-    '<div class="act-row act-head"><span>Games or Awareness</span><span>Game or topic</span><span>Minutes</span><span>Number of students</span><span>Number of teachers who joined</span></div>' +
-    '<div id="vf-acts"></div><button class="btn sm" type="button" id="vf-actadd">+ Add a row</button>';
+  // v9.7: only tick what was done
+  h += '<div class="section-h">' + WORDS.partB + '</div><p class="small">Tick what was done with the school.</p>' + ticks('actTicks', ['Games', 'Awareness']);
   // C (v9.5)
   h += '<div class="section-h">' + WORDS.partC + '</div>' +
     '<div class="form"><label>Session conducted?' + sel('momYN', yn) + '</label></div>' +
     '<div class="nums" data-if="momNums"><label class="f">Number of students involved' + num('momStudents') + '</label>' +
-    '<label class="f">Number of teachers involved' + num('momTeachers') + '</label>' +
-    '<label class="f">Number of others involved' + num('momOthers') + '</label></div>';
+    '<label class="f">Number of teachers involved' + num('momTeachers') + '</label></div>';
   // D
   h += '<div class="section-h">' + WORDS.partD + '</div><p class="small">' + WORDS.partDTick + '</p>' + ticks('rTicks', L['Remarks ticks'] || []) +
     '<textarea data-k="remarks" placeholder="Write the details here"></textarea>' +
@@ -1105,17 +1104,6 @@ function visitFormHtml(s) {
     '<button class="btn primary" type="button" id="vf-save">Save visit</button><button class="btn" type="button" id="vf-close">Close</button>' +
     '<button class="btn danger" type="button" id="vf-discard">Discard draft</button></div></div>';
   return h;
-}
-function actRow(a) {
-  a = a || {};
-  var d = document.createElement('div'); d.className = 'act-row';
-  var L = APP.school.lists['Activity type'] || ['Games', 'Awareness'];
-  d.innerHTML = '<select data-a="type" aria-label="Games or Awareness">' + opts(L, a.type) + '</select>' +
-    '<input type="text" data-a="what" placeholder="Game or topic" value="' + esc(a.what || '') + '">' +
-    ['minutes', 'students', 'teachers'].map(function (k) { return '<input type="number" min="0" inputmode="numeric" data-a="' + k + '" placeholder="' + { minutes: 'Minutes', students: 'Students', teachers: 'Teachers' }[k] + '" aria-label="' + { minutes: 'Minutes', students: 'Number of students', teachers: 'Number of teachers who joined' }[k] + '" value="' + esc(a[k] || '') + '">'; }).join('');
-  document.getElementById('vf-acts').appendChild(d);
-  d.addEventListener('input', visitChanged);
-  d.addEventListener('change', visitChanged);
 }
 /* ===== END P6.1 ===== */
 
@@ -1156,7 +1144,6 @@ function openVisitForm(edit) {
   var form = document.getElementById('vform');
   form.addEventListener('input', visitChanged);
   form.addEventListener('change', visitChanged);
-  document.getElementById('vf-actadd').addEventListener('click', function () { actRow({}); });
   document.getElementById('vf-olddata').addEventListener('click', function () { openUpdate(''); });
   document.getElementById('vf-close').addEventListener('click', function () { APP.office = null; APP.editVisit = null; redraw(['visitbox'], true); });
   document.getElementById('vf-discard').addEventListener('click', function () {
@@ -1185,9 +1172,6 @@ function readVisitForm() {
     v[el.dataset.multi] = v[el.dataset.multi] || [];
     if (el.checked) v[el.dataset.multi].push(el.value);
   });
-  v.acts = Array.prototype.map.call(f.querySelectorAll('#vf-acts .act-row'), function (r) {
-    var a = {}; Array.prototype.forEach.call(r.querySelectorAll('[data-a]'), function (el) { a[el.dataset.a] = el.value; }); return a;
-  }).filter(function (a) { return a.what || a.minutes || a.students || a.teachers; });
   return v;
 }
 function fillVisitForm(v) {
@@ -1195,8 +1179,8 @@ function fillVisitForm(v) {
   Array.prototype.forEach.call(f.querySelectorAll('[data-k]'), function (el) { if (v[el.dataset.k] !== undefined && v[el.dataset.k] !== null) el.value = v[el.dataset.k]; });
   Array.prototype.forEach.call(f.querySelectorAll('[data-bool]'), function (el) { el.checked = !!v[el.dataset.bool]; });
   Array.prototype.forEach.call(f.querySelectorAll('[data-multi]'), function (el) { el.checked = (v[el.dataset.multi] || []).indexOf(el.value) >= 0; });
-  var acts = (v.acts && v.acts.length) ? v.acts : [{ type: 'Games' }, { type: 'Awareness' }];
-  acts.forEach(actRow);
+  // an older visit saved with activity rows: tick the kinds it had
+  if (!v.actTicks && v.acts) Array.prototype.forEach.call(f.querySelectorAll('[data-multi=actTicks]'), function (el) { el.checked = v.acts.some(function (a) { return a.type === el.value; }); });
 }
 // shows or hides questions, the meaning of the chosen health, and the red warning when more were planted than given
 function visitShow() {
@@ -1206,6 +1190,7 @@ function visitShow() {
   show('[data-if=sWhyDiedOther]', (v.sWhyDied || []).indexOf('Other') >= 0);
   show('[data-if=sReplaceN]', v.sReplace === 'Yes');
   show('[data-if=momNums]', v.momYN === 'Yes');
+  show('[data-if=dWhyNot]', v.dSown === 'No');
   show('[data-if=wWhoOther]', v.wWho === 'Other');
   show('[data-if=wOften]', v.wWho !== 'Nobody'); show('[data-if=wSource]', v.wWho !== 'Nobody');
   ['sHealth'].forEach(function (k) {
@@ -1262,8 +1247,8 @@ function visitHistory(s) {
   return '<p class="small" style="margin:14px 0 4px"><b>Visits recorded</b></p>' + list.map(function (v, i) {
     var nums = [];
     if (v.given !== null || v.planted !== null) nums.push('Saplings: given ' + fmtN(v.given) + ', planted ' + fmtN(v.planted) + ', alive ' + fmtN(v.alive));
-    if (v.seedsGiven !== null || v.seedsGrew !== null) nums.push('Seeds: ' + fmtN(v.seedsGiven) + ' given' + (v.seedsSown !== null ? ', ' + fmtN(v.seedsSown) + ' sown' : '') + ', ' + fmtN(v.seedsGrew) + ' grew into saplings');
-    if (v.mom === 'Yes') nums.push('Miracle of Mind: students ' + fmtN(v.momStudents) + ', teachers ' + fmtN(v.momTeachers) + ', others ' + fmtN(v.momOthers));
+    if (v.seedsGiven !== null || v.seedsSownYN) nums.push('Seeds: ' + fmtN(v.seedsGiven) + ' given' + (v.seedsSownYN ? ', sown into packets: ' + esc(v.seedsSownYN) : ''));
+    if (v.mom === 'Yes') nums.push('Miracle of Mind: students ' + fmtN(v.momStudents) + ', teachers ' + fmtN(v.momTeachers));
     else if (v.mom === 'No') nums.push('Miracle of Mind: not conducted');
     return '<div class="list-row"><b>' + esc(v.date) + '</b> · ' + esc(v.how) + ' · ' + esc(v.volunteer) + ' ' + chip(v.source === 'Self' ? 'Recorded by the volunteer' : v.source + ' (' + v.enteredBy + ')') +
       (nums.length ? '<div class="small">' + esc(nums.join(' · ')) + (v.health ? ' · ' + esc(v.health) : '') + '</div>' : '') +
@@ -1523,15 +1508,15 @@ function loadDashboard() {
       tile(fmtN(t.alive), 'saplings alive', 'of ' + fmtN(t.planted) + ' planted') +
       tile(pct(t.alive, t.planted), 'survival: alive ÷ planted') +
       tile(pct(t.alive, t.given), 'survival: alive ÷ given') +
-      tile(fmtN(t.seedsGrew), 'seeds grew into saplings', 'of ' + fmtN(t.seedsGiven) + ' seeds given') +
+      tile(fmtN(t.seedsGiven), 'seeds given', fmtN(t.seedsSown) + ' schools sowed them into packets') +
       tile(fmtN(t.notWilling), 'not willing to support') +
       '</div>';
     h += '<p class="small" style="margin-top:6px">Saplings and survival use each school\'s latest visit where saplings were ticked. A correction waiting for approval counts at once.</p>';
     h += '<div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>' + { taluk: 'Taluk', hobli: 'Hobli', gp: 'Gram panchayat' }[d.level] + '</th>' +
-      '<th class="n">Schools</th><th class="n">Adopted</th><th class="n">Visited</th><th class="n">Given</th><th class="n">Planted</th><th class="n">Alive</th><th class="n">Alive ÷ planted</th><th class="n">Alive ÷ given</th><th class="n">Seeds grew</th></tr></thead><tbody>';
+      '<th class="n">Schools</th><th class="n">Adopted</th><th class="n">Visited</th><th class="n">Given</th><th class="n">Planted</th><th class="n">Alive</th><th class="n">Alive ÷ planted</th><th class="n">Alive ÷ given</th><th class="n">Seeds given</th><th class="n">Sowed seeds</th></tr></thead><tbody>';
     d.rows.forEach(function (r) {
       h += '<tr' + (d.level !== 'gp' ? ' class="click" data-drill="' + esc(r.name) + '"' : '') + '><td>' + (d.level !== 'gp' ? '▸ ' : '') + esc(r.name) + '</td><td class="n">' + fmtN(r.schools) + '</td><td class="n">' + fmtN(r.adopted) + '</td><td class="n">' + fmtN(r.visited) +
-        '</td><td class="n">' + fmtN(r.given) + '</td><td class="n">' + fmtN(r.planted) + '</td><td class="n">' + fmtN(r.alive) + '</td><td class="n">' + pct(r.alive, r.planted) + '</td><td class="n">' + pct(r.alive, r.given) + '</td><td class="n">' + fmtN(r.seedsGrew) + '</td></tr>';
+        '</td><td class="n">' + fmtN(r.given) + '</td><td class="n">' + fmtN(r.planted) + '</td><td class="n">' + fmtN(r.alive) + '</td><td class="n">' + pct(r.alive, r.planted) + '</td><td class="n">' + pct(r.alive, r.given) + '</td><td class="n">' + fmtN(r.seedsGiven) + '</td><td class="n">' + fmtN(r.seedsSown) + '</td></tr>';
     });
     h += '</tbody></table></div>';
     h += '<h3 style="margin-top:18px">People and work</h3><div class="grid-tiles">' +
@@ -2254,7 +2239,7 @@ function alertChips(list) { return (list || []).map(function (k) { return chip('
 function addAlerts(s, ticks) {
   s.alerts = s.alerts || [];
   (ticks || []).forEach(function (t) {
-    var k = /pit|tree guard/i.test(t) ? 'Pit digging / tree guard' : /concern/i.test(t) ? 'Concern' : '';
+    var k = /pit|tree guard/i.test(t) ? 'Pit digging / tree guard' : /concern/i.test(t) ? 'Concern' : /follow.?up/i.test(t) ? 'Follow up' : '';
     if (k && s.alerts.indexOf(k) < 0) s.alerts.push(k);
   });
   var c = document.getElementById('schoolchips'); if (c && APP.school === s) c.innerHTML = schoolChips(s);
