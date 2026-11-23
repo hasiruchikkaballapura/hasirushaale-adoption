@@ -119,7 +119,7 @@
  */
 
 // ===== START 0.0 Version =====
-var APP_VERSION = '2026-11-22 v9.8';
+var APP_VERSION = '2026-11-23 v9.9';
 // ===== END 0.0 =====
 
 
@@ -516,6 +516,7 @@ function schoolDataBase_() {
       officeNote: String(clean_(get_(r, 'Remarks'))),     // the office's note to volunteers (column "Remarks" in School Data)
       firstVisit: visit instanceof Date ? ist_(visit, 'd MMM yyyy') : String(clean_(visit)),
       firstVol: String(clean_(get_(r, 'Volunteer Name'))),
+      firstVolPhone: String(clean_(get_(r, 'Volunteer Number'))),   // v9.9: added by hand to School Data (blank if the column is not there)
       group: group,
       groupNo: num_(group.replace(/\D/g, '')),
       caution: /not ready/i.test(activity) || /merged/i.test(schoolStatus)

@@ -77,7 +77,7 @@
 <title>Hasiru Shaale · School adoption</title>
 
 <!-- ===== START P0.0 Version ===== -->
-<meta name="app-version" content="2026-11-22 v9.8">
+<meta name="app-version" content="2026-11-23 v9.9">
 <!-- ===== END P0.0 ===== -->
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -847,6 +847,8 @@ function detailsBox(s) {
     P('Alternative contact', 'altName', s.altName) + P('Alternative contact number', 'altPhone', s.altPhone) +
     head('Phase 1') + P('Saplings given', 'saplings', s.saplings ? fmtN(s.saplings) : '') + P('Seeds given', 'seeds', s.seeds ? fmtN(s.seeds) : '') +
     kv('Date of first visit', s.firstVisit) + kv('1st visit volunteer', s.firstVol) +
+    // v9.9: the Phase 1 volunteer's number (School Data column "Volunteer Number")
+    '<div><dt>1st visit volunteer number</dt><dd>' + (String(s.firstVolPhone || '').split(/\s*[\/,;]\s*/).map(phoneLine).join('') || '-') + '</dd></div>' +
     (s.species ? '<div class="wide"><dt>Species and remarks</dt><dd class="small">' + esc(s.species) + '</dd></div>' : '') +
     (s.pending && s.pending.saplings && s.pending.saplings.species ? '<div class="wide"><dt>Species proposed (waiting for approval)</dt><dd class="small">' + esc(s.pending.saplings.species) + '</dd></div>' : '') +
     (s.pending && s.pending.other ? '<div class="wide"><dt>Other change proposed (waiting)</dt><dd class="small">' + esc(s.pending.other.old) + ': ' + esc(s.pending.other.value) + '</dd></div>' : '') +
