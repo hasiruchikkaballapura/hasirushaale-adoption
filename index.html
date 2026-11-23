@@ -149,6 +149,12 @@ h4 { font-size: 15px; margin: 14px 0 6px; }
 details.faq { border-top: 1px solid var(--line); }
 details.faq summary { cursor: pointer; padding: 10px 0; font-weight: 600; }
 details.faq > div { padding: 0 0 12px; line-height: 1.5; }
+#vform.ro input:disabled, #vform.ro select:disabled, #vform.ro textarea:disabled { opacity: 1; color: var(--ink); background: var(--surface-2); -webkit-text-fill-color: var(--ink); }
+.map-note { border: 2px solid var(--warn); background: var(--warn-soft); color: var(--ink); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; font-size: 15px; line-height: 1.45; }
+.map-note h3 { color: var(--warn); font-size: 18px; margin: 0 0 6px; }
+.map-note p { margin: 6px 0 0; }
+.map-modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.map-modal .map-note { max-width: 520px; width: 100%; background: var(--surface); box-shadow: 0 10px 40px rgba(0,0,0,.35); margin: 0; }
 .subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .subtabs button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
 .subtabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -1136,6 +1142,7 @@ function wireVisitBox() {
 // edit: a visit from the history (to change it), or null for a new visit
 function openVisitForm(edit) {
   var s = APP.school;
+  var vb = document.getElementById('vviewbox'); if (vb) vb.remove();   // a form opened only to read (v9.9)
   APP.editVisit = edit;
   var wrap = document.getElementById('vfwrap');
   if (!wrap) return;
@@ -1270,11 +1277,15 @@ function visitHistory(s) {
       (v.ticks ? '<div>' + v.ticks.split(/,\s*/).map(function (t) { return chip(t, /concern|pit|not willing/i.test(t) ? 'warn' : ''); }).join('') + '</div>' : '') +
       (v.remarks ? '<div class="small">' + esc(v.remarks) + '</div>' : '') +
       (v.photos ? '<div class="small">' + v.photos + ' photo' + (v.photos === 1 ? '' : 's') + ' saved</div>' : '') +
-      (v.canEdit && APP.school.canVisit ? '<div style="margin-top:6px"><button class="btn sm" type="button" data-vedit="' + i + '">Change</button> <button class="btn sm danger" type="button" data-vdel="' + esc(v.id) + '">Delete</button></div>' : '') + '</div>';
+      '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">' + (v.form && Object.keys(v.form).length ? '<button class="btn sm" type="button" data-vview="' + i + '">📄 View form</button>' : '') +
+      (v.canEdit && APP.school.canVisit ? '<button class="btn sm" type="button" data-vedit="' + i + '">Change</button><button class="btn sm danger" type="button" data-vdel="' + esc(v.id) + '">Delete</button>' : '') + '</div></div>';
   }).join('');
 }
 function wireHistory() {
   var s = APP.school;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-vview]'), function (b) {
+    b.addEventListener('click', function () { viewVisitForm(s.visitsList[Number(b.dataset.vview)]); });
+  });
   Array.prototype.forEach.call(document.querySelectorAll('[data-vedit]'), function (b) {
     b.addEventListener('click', function () { openVisitForm(s.visitsList[Number(b.dataset.vedit)]); });
   });
@@ -1290,6 +1301,28 @@ function wireHistory() {
       });
     });
   });
+}
+// v9.9: anyone who can see the visit list (volunteer, coordinator, office) can read a saved visit
+// in the same form the volunteer filled. Nothing can be changed here and nothing is saved.
+function viewVisitForm(v) {
+  var s = APP.school, open = document.getElementById('vform');
+  if (open && !open.classList.contains('ro')) { toast('Close the open visit form first.'); return; }
+  var old = document.getElementById('vviewbox'); if (old) old.remove();
+  var box = document.createElement('div'); box.id = 'vviewbox'; box.className = 'box';
+  box.innerHTML = '<div class="msg" style="margin-bottom:8px"><b>📄 Visit of ' + esc(v.date) + '</b> · ' + esc(v.volunteer) +
+    (v.enteredBy && v.enteredBy !== v.volunteer ? ' · entered by ' + esc(v.enteredBy) : '') + '<br><span class="small">Read only. This is what was filled in the form.</span></div>' +
+    visitFormHtml(s) + (v.photos ? '<p class="small">' + v.photos + ' photo' + (v.photos === 1 ? '' : 's') + ' saved with this visit.</p>' : '');
+  var hist = document.getElementById('vhist');
+  hist.parentNode.insertBefore(box, hist);
+  var f = document.getElementById('vform');
+  f.classList.add('ro');
+  fillVisitForm(v.form || {});
+  visitShow();
+  Array.prototype.forEach.call(f.querySelectorAll('input, select, textarea'), function (el) { el.disabled = true; });
+  ['vf-save', 'vf-discard', 'vf-olddata', 'vf-leave', 'vf-pcount', 'vf-thumbs', 'vf-fixgiven', 'vdraftmsg'].forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = true; });
+  var ph = document.getElementById('vf-photos'); if (ph && ph.closest('label')) ph.closest('label').hidden = true;
+  document.getElementById('vf-close').addEventListener('click', function () { box.remove(); });
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 /* ===== END P6.3 ===== */
 
@@ -2094,12 +2127,14 @@ function personCombo(boxId, people, current, onPick, label) {
 // The search box searches as you type (school name, village, GP or UDISE); one match opens its popup.
 var MAPF = { taluk: '', show: '', q: '' };
 function screenMap() {
-  setMain('<h2>Map</h2><div class="filters" id="mf"></div><div class="legend" id="mlegend"></div><div id="map"><p class="small" style="padding:12px">Loading the map…</p></div><p class="small" id="mcount"></p>');
+  setMain('<h2>Map</h2>' + mapNoteHtml('') + '<div class="filters" id="mf"></div><div class="legend" id="mlegend"></div><div id="map"><p class="small" style="padding:12px">Loading the map…</p></div><p class="small" id="mcount"></p>');
   loadLeaflet(function () {
     apiCall('map').then(function (res) {
       if (!document.getElementById('map')) return;
       if (!res.ok) { document.getElementById('map').innerHTML = '<div class="msg bad">' + esc(res.error) + '</div>'; return; }
       APP.points = res.points;
+      mapNoteCount(res.points);
+      if (!APP.mapNoteSeen) mapNoteModal();
       var taluks = res.points.map(function (p) { return p.t; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).sort();
       document.getElementById('mf').innerHTML = '<select data-m="taluk"><option value="">All taluks</option>' + taluks.map(function (t) { return '<option' + (MAPF.taluk === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>' +
         '<select data-m="show">' + [['', 'All schools'], ['given', 'Given to a volunteer'], ['free', 'Not given'], ['visited', 'Visited'], ['notwilling', 'Not willing'], ['caution', 'Not ready or merged'], ['gps', 'Real position saved']]
@@ -2107,7 +2142,7 @@ function screenMap() {
         '<input type="search" data-m="q" id="mq" placeholder="Search school, village or UDISE" value="' + esc(MAPF.q) + '" style="min-width:220px">';
       document.getElementById('mlegend').innerHTML = [['--map-visited', 'Visited'], ['--map-given', 'Given, not visited yet'], ['--map-free', 'Not given'], ['--map-bad', 'Not willing'], ['--map-caution', 'Not ready or merged']]
         .map(function (x) { return '<span><span class="dot" style="background:var(' + x[0] + ')"></span>' + x[1] + '</span>'; }).join('') +
-        '<span><span class="dot"  style="background:var(--muted)"></span>real position</span><span style="color:var(--muted)"><span class="dot hollow"></span>approximate</span>';
+        '<span><b><span class="dot"  style="background:var(--muted)"></span>filled = exact location saved</b></span><span style="color:var(--muted)"><b><span class="dot hollow"></span>hollow = approximate</b></span>';
       Array.prototype.forEach.call(document.querySelectorAll('select[data-m]'), function (el) {
         el.addEventListener('change', function () { MAPF[el.dataset.m] = el.value; drawMap(true); });
       });
@@ -2154,7 +2189,7 @@ function drawMap(fit) {
     var m = L.circleMarker([p.la, p.lo], { radius: real ? 7 : 6, color: c, weight: real ? 1 : 2, fillColor: c, fillOpacity: real ? 0.9 : 0.05 });
     m.bindPopup('<b>' + esc(p.n) + '</b><br>' + esc([p.v, p.g, p.h, p.t].filter(String).join(' · ')) + (p.u ? '<br>UDISE ' + esc(p.u) : '') + '<br>' +
       (p.a ? 'With ' + esc(p.a) : 'Not given') + (p.lv ? '<br>Last visit ' + esc(niceDate(p.lv)) : '') + (p.w ? '<br><b>' + WORDS.notWilling + '</b>' : '') +
-      (p.al ? '<br><b style="color:#b06d00">⚠ Needs attention</b>' : '') + (p.gr ? '<br>Vol ' + p.gr : '') + '<br><span style="color:#888">' + (real ? 'Real position' : p.k === 'village' ? 'Approximate (village)' : 'Approximate (taluk)') + '</span><br>' +
+      (p.al ? '<br><b style="color:#b06d00">⚠ Needs attention</b>' : '') + (p.gr ? '<br>Vol ' + p.gr : '') + '<br>' + (real ? '<span style="color:#888">● Exact location (saved at the school)</span>' : '<b style="color:#b06d00">○ Approximate (' + (p.k === 'village' ? 'village' : 'taluk') + '). Please save the live location at your next visit.</b>') + '<br>' +
       '<a href="https://www.google.com/maps?q=' + p.la + ',' + p.lo + '" target="_blank" rel="noopener">Open in Google Maps</a> · <a href="#" data-mapopen="' + p.id + '">Open school</a>');
     m.addTo(APP.mapLayer);
     bounds.push([p.la, p.lo]);
@@ -2170,6 +2205,31 @@ document.addEventListener('click', function (ev) {
   ev.preventDefault();
   openSchoolFrom(a.dataset.mapopen);
 });
+// v9.9: the map shows the village position until someone saves the school's live location.
+// A clear note says so (on top of the map, and once as a pop-up each time the app is opened).
+function mapNoteHtml(id) {
+  return '<div class="map-note"' + (id ? ' id="' + id + '"' : '') + '><h3>⚠ The location on this map may be approximate</h3>' +
+    '<p>Most schools are shown at their <b>village</b>, not at the exact school. <b>Please use the map only as a reference.</b></p>' +
+    '<p>When you visit a school, <b>save its live location</b>: on the school page tap <b>📍 Save my current location</b>. ' +
+    'It is a <b>one-time update</b>. From then on the map shows the exact place.</p>' +
+    '<p><b>Already saved it?</b> You do not need to do it again. Those schools show as a <b>filled dot ●</b>. ' +
+    'A <b>hollow ring ○</b> means the place is approximate.</p><p class="mapnote-count small" style="font-weight:600"></p></div>';
+}
+function mapNoteCount(points) {
+  var exact = points.filter(function (p) { return p.k === 'gps'; }).length;
+  var who = APP.me.role === 'Volunteer' ? 'Your schools' : 'Schools on this map';
+  Array.prototype.forEach.call(document.querySelectorAll('.mapnote-count'), function (el) {
+    el.textContent = who + ': ' + exact + ' of ' + points.length + ' have the exact location saved.';
+  });
+}
+function mapNoteModal() {
+  var m = document.createElement('div'); m.className = 'map-modal'; m.id = 'mapmodal';
+  m.innerHTML = mapNoteHtml('') ;
+  m.querySelector('.map-note').insertAdjacentHTML('beforeend', '<div class="right" style="margin-top:10px"><button class="btn primary" type="button" id="mapok">I understand</button></div>');
+  document.body.appendChild(m);
+  mapNoteCount(APP.points);
+  document.getElementById('mapok').addEventListener('click', function () { APP.mapNoteSeen = true; m.remove(); });
+}
 /* ===== END P8.1 ===== */
 
 /* ===== START P9.1 FAQs ===== */
@@ -2300,6 +2360,7 @@ function wireSubTabs() {
 function route() {
   if (!APP.me) return;
   if (APP.map) { try { APP.map.remove(); } catch (e) { } APP.map = null; }
+  var mm = document.getElementById('mapmodal'); if (mm) mm.remove();
   var tops = myTops();
   var parts = (location.hash || '').replace('#', '').split('/');
   var top = tops.indexOf(parts[0]) >= 0 ? parts[0] : (APP.me.role === 'Admin' ? 'admin' : APP.me.role === 'Coordinator' ? 'coord' : 'vol');
