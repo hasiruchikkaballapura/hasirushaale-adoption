@@ -77,7 +77,7 @@
 <title>Hasiru Shaale · School adoption</title>
 
 <!-- ===== START P0.0 Version ===== -->
-<meta name="app-version" content="2026-11-23 v9.9">
+<meta name="app-version" content="2026-11-24 v9.10">
 <!-- ===== END P0.0 ===== -->
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -295,7 +295,7 @@ function warmSoon() {
 
 /* ===== START P3.2 Google sign-in ===== */
 // The Client ID comes from the backend (Script Property OAUTH_CLIENT_ID).
-// The sign-in lasts about one hour; it is kept only in this browser tab.
+// The Google sign-in is used once; the app then keeps its own 30-day sign-in pass on this phone (v9.10).
 function showSignIn(message) {
   document.getElementById('top').hidden = true;
   setMain('<div class="signin-box"><div class="card">' +
@@ -318,7 +318,6 @@ function whenGoogleReady(fn, tries) {
 }
 function onSignedIn(resp) {
   APP.token = resp.credential;
-  try { sessionStorage.setItem('hs_token', APP.token); } catch (e) { }
   loadMe();
 }
 function signOut(message) {
@@ -327,7 +326,7 @@ function signOut(message) {
     apiCall('config').then(function (res) { APP.clientId = res.clientId || ''; signOut(message); });
     return;
   }
-  try { sessionStorage.removeItem('hs_token'); } catch (e) { }
+  try { localStorage.removeItem('hs_session'); sessionStorage.removeItem('hs_token'); } catch (e) { }
   if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
   showSignIn(message || '');
 }
@@ -345,6 +344,7 @@ function loadMe() {
   apiCall('me').then(function (res) {
     if (!res.ok) { signOut(res.error); return; }
     APP.me = res.person; APP.settings = res.settings || {};
+    if (res.session) { APP.token = res.session; try { localStorage.setItem('hs_session', res.session); } catch (e) { } }   // v9.10
     APP.mySchools = res.schools || null;             // My schools come with the sign-in, saving one wait
     APP.preSchools = true;
     APP.alertCount = res.alertCount || 0; APP.alertT = Date.now();
@@ -2429,7 +2429,8 @@ document.getElementById('signout').addEventListener('click', function () { signO
     setMain('<div class="signin-box"><div class="msg bad">The web app link is not filled in yet. Put it in section P2.1 of this file.</div></div>');
     return;
   }
-  try { APP.token = sessionStorage.getItem('hs_token') || ''; } catch (e) { APP.token = ''; }
+  // v9.10: the 30-day sign-in pass is kept on this phone, so the app opens without signing in again
+  try { APP.token = localStorage.getItem('hs_session') || sessionStorage.getItem('hs_token') || ''; } catch (e) { APP.token = ''; }
   if (APP.token) { loadMe(); return; }
   apiCall('config').then(function (res) {
     if (!res.ok || !res.clientId) {

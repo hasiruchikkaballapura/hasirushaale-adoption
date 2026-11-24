@@ -119,7 +119,7 @@
  */
 
 // ===== START 0.0 Version =====
-var APP_VERSION = '2026-11-23 v9.9';
+var APP_VERSION = '2026-11-24 v9.10';
 // ===== END 0.0 =====
 
 
@@ -410,6 +410,7 @@ function cacheDrop_(key) {
 // A checked token is remembered for 5 minutes so we do not ask Google every time.
 function verifyToken_(token) {
   if (!token) throw signInError_('Please sign in.');
+  if (String(token).indexOf('hs1.') === 0) return checkSession_(token);   // v9.10: the app's own 30-day sign-in
   var cache = CacheService.getScriptCache();
   var key = 'tok_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token)).slice(0, 40);
   var known = cache.get(key);
@@ -430,6 +431,36 @@ function signInError_(msg) {
   var e = new Error(msg);
   e.needSignIn = true;
   return e;
+}
+// v9.10: after one Google sign-in the app gives its own sign-in pass, valid for 30 days and renewed
+// each time the app is opened. It is signed with a secret kept only in Script Properties (SESSION_SECRET,
+// made automatically). The Vol tab is still checked on every request, so making a person Inactive
+// stops them at once. Changing or deleting SESSION_SECRET signs everybody out.
+var SESSION_DAYS = 30;
+function sessionSecret_() {
+  var p = PropertiesService.getScriptProperties(), s = p.getProperty('SESSION_SECRET');
+  if (s) return s;
+  var lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    s = p.getProperty('SESSION_SECRET');
+    if (!s) { s = Utilities.getUuid() + Utilities.getUuid(); p.setProperty('SESSION_SECRET', s); }
+    return s;
+  } finally { lock.releaseLock(); }
+}
+function sessionSign_(text) {
+  return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(text, sessionSecret_())).replace(/=+$/, '');
+}
+function makeSession_(email) {
+  var body = Utilities.base64EncodeWebSafe(email + '|' + (Date.now() + SESSION_DAYS * 86400000)).replace(/=+$/, '');
+  return 'hs1.' + body + '.' + sessionSign_(body);
+}
+function checkSession_(token) {
+  var parts = String(token).split('.');
+  if (parts.length !== 3 || sessionSign_(parts[1]) !== parts[2]) throw signInError_('Please sign in again.');
+  var raw = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[1] + '==='.slice((parts[1].length + 3) % 4))).getDataAsString();
+  var bits = raw.split('|');
+  if (bits.length !== 2 || !(Number(bits[1]) > Date.now())) throw signInError_('Your sign-in has expired. Please sign in again.');
+  return email_(bits[0]);
 }
 // ===== END 10.1 =====
 
@@ -2338,7 +2369,7 @@ function handle_(req) {
     switch (action) {
       case 'me':
         var st = settings_();
-        return { ok: true, person: person, today: ist_(new Date(), 'yyyy-MM-dd'), clientId: prop_(PROP.OAUTH_CLIENT_ID), version: APP_VERSION,
+        return { ok: true, person: person, session: makeSession_(person.email), today: ist_(new Date(), 'yyyy-MM-dd'), clientId: prop_(PROP.OAUTH_CLIENT_ID), version: APP_VERSION,
                  schools: schoolsOf_(person.email),
                  settings: { mapVolunteers: st.MAP_VOLUNTEERS, mapCoordinators: st.MAP_COORDINATORS,
                              visitFormVolunteers: st.VISIT_FORM_VOLUNTEERS, visitFormCoordinators: st.VISIT_FORM_COORDINATORS,
