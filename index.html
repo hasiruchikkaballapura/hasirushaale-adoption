@@ -77,7 +77,7 @@
 <title>Hasiru Shaale · School adoption</title>
 
 <!-- ===== START P0.0 Version ===== -->
-<meta name="app-version" content="2026-11-24 v9.10">
+<meta name="app-version" content="2026-11-25 v9.11">
 <!-- ===== END P0.0 ===== -->
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -155,6 +155,11 @@ details.faq > div { padding: 0 0 12px; line-height: 1.5; }
 .map-note p { margin: 6px 0 0; }
 .map-modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .map-modal .map-note { max-width: 520px; width: 100%; background: var(--surface); box-shadow: 0 10px 40px rgba(0,0,0,.35); margin: 0; }
+.daybefore { border: 2px solid #b5651d; background: #fdf3e7; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+.daybefore h3 { color: #9a4f12; margin: 0 0 6px; }
+.daybefore .check { margin: 6px 0; font-size: 15px; }
+.daybefore input { width: 18px; height: 18px; flex: none; margin-top: 2px; }
+@media (prefers-color-scheme: dark) { .daybefore { background: #33261a; border-color: #d9904a; } .daybefore h3 { color: #f0b47a; } }
 .subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .subtabs button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
 .subtabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -417,9 +422,37 @@ function screenMySchools() {
     if (here && changed) drawMySchools(APP.mySchools);
   });
 }
+// v9.11: always shown on top of Your Adopted Schools. Ticks are only a help on this phone (kept for the day).
+var DAY_BEFORE = [
+  'Call the HM: tell them about the session, confirm a time that suits them',
+  'Collect booklets from the centre or Sadhguru Sannidhi',
+  'Check your school\'s location and route',
+  'Speak with your pair volunteer: who leads which part',
+  'Prepare your quiz list: questions and riddles you\'re comfortable with',
+  'Check the web app works on your phone',
+  'Do a dry run of the full session flow by yourself',
+  'Get MoM ready: phone fully charged, session working, handy speaker (laptop optional)'
+];
+function dayBeforeHtml() {
+  var done = {};
+  try { done = JSON.parse(localStorage.getItem('hs_daybefore_' + todayIST()) || '{}'); } catch (e) { done = {}; }
+  return '<div class="daybefore"><h3>📋 A day before your visit: get ready</h3>' + DAY_BEFORE.map(function (t, i) {
+    return '<label class="check"><input type="checkbox" data-db="' + i + '"' + (done[i] ? ' checked' : '') + '> <span>' + esc(t) + '</span></label>';
+  }).join('') + '</div>';
+}
+function wireDayBefore() {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-db]'), function (c) {
+    c.addEventListener('change', function () {
+      var k = 'hs_daybefore_' + todayIST(), done = {};
+      try { done = JSON.parse(localStorage.getItem(k) || '{}'); } catch (e) { done = {}; }
+      done[c.dataset.db] = c.checked;
+      try { localStorage.setItem(k, JSON.stringify(done)); } catch (e) { }
+    });
+  });
+}
 function drawMySchools(list) {
-  var h = '<h2>' + WORDS.mySchools + '</h2>';
-  if (!list.length) { setMain(h + '<div class="card">' + (APP.me.role === 'Volunteer' ? WORDS.noSchools : WORDS.noOwnSchools) + '</div>'); return; }
+  var h = '<h2>' + WORDS.mySchools + '</h2>' + dayBeforeHtml();
+  if (!list.length) { setMain(h + '<div class="card">' + (APP.me.role === 'Volunteer' ? WORDS.noSchools : WORDS.noOwnSchools) + '</div>'); wireDayBefore(); return; }
   h += '<p class="small">' + list.length + ' school' + (list.length === 1 ? '' : 's') + ' adopted. Tap a school to open it.</p><div class="stack">';
   list.forEach(function (s, i) {
     h += '<button type="button" class="card school-btn' + (s.caution ? ' caution' : '') + (s.notWilling ? ' nw' : (s.alerts && s.alerts.length ? ' al' : '')) + '" data-open="' + s.id + '">' +
@@ -432,6 +465,7 @@ function drawMySchools(list) {
       chip(s.frontPhoto ? 'Front photo saved' : 'Front photo not taken yet', s.frontPhoto ? 'good' : 'warn') + '</div></button>';
   });
   setMain(h + '</div>');
+  wireDayBefore();
   Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) {
     b.addEventListener('click', function () { openSchoolFrom(b.dataset.open); });
   });
@@ -489,7 +523,7 @@ function isEditing() {
 }
 function schoolChips(s) {
   return (s.caution ? chip(WORDS.caution, 'warn') : '') + (s.notWilling ? chip(WORDS.notWilling + (s.first && s.first.notWillingReason ? ': ' + s.first.notWillingReason : ''), 'bad') : '') + alertChips(s.alerts) +
-    (s.group ? chip('Vol ' + s.groupNo) : '') + chip(s.activity || '-') +
+    (s.students !== null && s.students !== undefined && s.students !== '' ? chip(fmtN(s.students) + ' students') : '') + chip(s.activity || '-') +
     (s.assignedTo === 'Taken' ? chip('Given to another volunteer') : s.assignedTo && s.assignedTo !== APP.me.email ? chip('With ' + (s.assignedName || s.assignedTo)) : !s.assignedTo ? chip('Not given yet') : '');
 }
 function drawSchool(s, backHash) {
@@ -508,8 +542,8 @@ function drawSchool(s, backHash) {
   h += '<div class="card" id="detailsbox">' + detailsBox(s) + '</div>';
   if (s.canManage) h += '<div class="card" id="managebox">' + manageBox(s) + '</div>';
   h += '<div class="card first" id="firstbox">' + firstBox(s) + '</div>';
+  h += '<div class="card" id="callbox">' + callBox(s) + '</div>';      // v9.11: call first, then the A4 form right above Record your visit
   h += '<div class="card" id="formbox">' + formBox(s) + '</div>';
-  h += '<div class="card" id="callbox">' + callBox(s) + '</div>';
   h += '<div class="card" id="visitbox">' + visitBox(s) + '</div>';
   h += '<div class="card" id="mediabox">' + mediaBox(s) + '</div>';
   h += '</div>';
@@ -1344,7 +1378,7 @@ function screenVolunteers() {
     APP.picked = {};
     var h = '<h2>' + title + '</h2>';
     h += '<div class="filters"><input type="search" id="vq" placeholder="Search name, email, centre or area" style="min-width:240px">' +
-         '<select id="vshow"><option value="">Everyone</option><option value="none">No schools yet</option><option value="with">With schools</option>' +
+         '<select id="vshow"><option value="">Everyone</option><option value="none">No schools yet</option><option value="with">With schools</option><option value="visited">Visited a school</option><option value="notvisited">Has schools, none visited yet</option>' +
          (isAdmin ? '<option value="nocoord">No coordinator</option><option value="check">Email to check</option><option value="inactive">Inactive</option><option value="coords">Coordinators and admins</option>' : '') + '</select>' +
          (isAdmin ? '<button class="btn sm" id="vrefresh" type="button">Refresh volunteers from the sign-up form</button>' : '') + '</div>';
     if (isAdmin) h += '<div class="bar" id="vbulk"><span class="small" id="vbcount">0 chosen</span>' +
@@ -1390,6 +1424,8 @@ function drawVolunteers() {
   var list = APP.vols.filter(function (v) {
     if (show === 'none' && v.schools) return false;
     if (show === 'with' && !v.schools) return false;
+    if (show === 'visited' && !v.visited) return false;                    // v9.11
+    if (show === 'notvisited' && (!v.schools || v.visited)) return false;
     if (show === 'check' && !/check/i.test(v.note)) return false;
     if (show === 'inactive' && /^active$/i.test(v.status)) return false;
     if (show === 'nocoord' && (v.coordinator || !/^vol/i.test(v.role))) return false;
@@ -1741,7 +1777,7 @@ function runGroups() {
     if (!res.ok) { document.getElementById('flist').innerHTML = '<div class="msg bad">' + esc(res.error) + '</div>'; return; }
     APP.grpRes = res; APP.findRes = null;
     document.getElementById('ffsel').innerHTML = '<select data-g="taluk"><option value="">All taluks</option>' + res.taluks.map(function (t) { return '<option' + (t === GRP.taluk ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>' +
-      '<select data-g="show">' + [['free', 'Free groups'], ['partly', 'Partly given'], ['given', 'Fully given'], ['all', 'All groups']].map(function (x) { return '<option value="' + x[0] + '"' + (GRP.show === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>';
+      '<select data-g="show">' + [['free', 'Free groups'], ['partly', 'Partly given'], ['given', 'Fully given'], ['visited', 'With a visited school'], ['notvisited', 'Given, no school visited yet'], ['all', 'All groups']].map(function (x) { return '<option value="' + x[0] + '"' + (GRP.show === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>';
     Array.prototype.forEach.call(ff.querySelectorAll('select[data-g]'), function (el) {
       el.addEventListener('change', function () { GRP[el.dataset.g] = el.value; GRP.limit = 25; document.getElementById('flist').innerHTML = '<p class="small">Loading…</p>'; runGroups(); });
     });
@@ -1762,7 +1798,9 @@ function drawGroups() {
     g.schools.forEach(function (s, i) {
       h += '<div class="list-row"><span class="sl">' + (i + 1) + '.</span><button class="link" type="button" data-open="' + s.id + '">' + esc(s.name) + '</button> ' +
         '<span class="small">' + esc([s.village, s.gp, s.hobli, s.taluk].filter(String).join(' · ')) + ' · ' + esc(s.activity) + '</span> ' +
-        (s.assignedTo ? chip(s.assignedTo === 'Taken' ? 'Taken' : 'With ' + s.assignedTo, 'good') : chip('Free')) + (s.notWilling ? chip(WORDS.notWilling, 'bad') : '') + alertChips(s.alerts) + (s.caution ? chip('Not ready or merged', 'warn') : '') + '</div>';
+        (s.students !== null && s.students !== undefined && s.students !== '' ? chip(fmtN(s.students) + ' students') : '') +
+        (s.assignedTo ? chip(s.assignedTo === 'Taken' ? 'Taken' : 'With ' + (s.assignedName || s.assignedTo), 'good') : chip('Free')) + (s.lastVisit ? chip('Visited ' + niceDate(s.lastVisit), 'good') : '') +
+        (s.notWilling ? chip(WORDS.notWilling, 'bad') : '') + alertChips(s.alerts) + (s.caution ? chip('Not ready or merged', 'warn') : '') + '</div>';
     });
     h += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">' +
       (free.length ? '<button class="btn sm primary" type="button" data-give="' + free.join(',') + '">Give ' + (free.length === g.schools.length ? 'this group' : 'the ' + free.length + ' free school' + (free.length === 1 ? '' : 's')) + '</button>' : '') +
@@ -1786,7 +1824,7 @@ function runFind() {
       '<select data-f="taluk">' + opt(res.taluks, FIND.taluk, 'All taluks') + '</select>' +
       '<select data-f="hobli">' + opt(res.hoblis, FIND.hobli, 'All hoblis') + '</select>' +
       '<select data-f="gp">' + opt(res.gps, FIND.gp, 'All GPs') + '</select>' +
-      '<select data-f="show">' + [['', 'All schools'], ['free', 'Not given'], ['assigned', 'Given'], ['mine', APP.me.role === 'Admin' ? 'Given (any)' : 'My volunteers\''], ['notwilling', 'Not willing'], ['caution', 'Not ready or merged']]
+      '<select data-f="show">' + [['', 'All schools'], ['free', 'Not given'], ['assigned', 'Given'], ['mine', APP.me.role === 'Admin' ? 'Given (any)' : 'My volunteers\''], ['visited', 'Visited'], ['notvisited', 'Given, not visited yet'], ['notwilling', 'Not willing'], ['caution', 'Not ready or merged']]
         .map(function (x) { return '<option value="' + x[0] + '"' + (FIND.show === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>';
     Array.prototype.forEach.call(ff.querySelectorAll('select[data-f]'), function (el) {
       el.addEventListener('change', function () {
@@ -1806,13 +1844,14 @@ function drawFind() {
   var m = document.getElementById('aprefmatch'); if (m) m.textContent = prefText(res.pref);
   var h = '<p class="small">' + fmtN(res.total) + ' school' + (res.total === 1 ? '' : 's') + (res.total > res.schools.length ? ', first ' + res.schools.length + ' shown' : '') + '. Tick schools, then Give or Take back.</p>';
   h += '<div class="bar"><span class="small" id="fcount">0 ticked</span><button class="btn sm primary" type="button" id="fgive">Give ticked</button><button class="btn sm" type="button" id="fback">Take back ticked</button></div>';
-  h += '<div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" id="fall" aria-label="Tick all shown"></th><th class="n">Sl. No.</th><th>School</th><th>Place</th><th>Group</th><th>Given in Phase 1</th><th>With</th></tr></thead><tbody>';
+  h += '<div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" id="fall" aria-label="Tick all shown"></th><th class="n">Sl. No.</th><th>School</th><th>Place</th><th class="n">Students</th><th>Given in Phase 1</th><th>With</th></tr></thead><tbody>';
   res.schools.forEach(function (s) {
     var given = [s.saplings ? fmtN(s.saplings) + ' saplings' : '', s.seeds ? fmtN(s.seeds) + ' seeds' : ''].filter(String).join(' + ');
     h += '<tr><td><input type="checkbox" data-tick="' + s.id + '" aria-label="Tick"></td><td class="n">' + s.id + '</td><td><button class="link" type="button" data-open="' + s.id + '"><b>' + esc(s.name) + '</b></button><div class="small">' + esc(s.udise) + '</div>' +
       (s.caution ? chip(/not ready/i.test(s.activity) ? 'Not ready' : 'Merged', 'warn') : '') + (s.notWilling ? chip(WORDS.notWilling, 'bad') : '') + alertChips(s.alerts) + '</td>' +
       '<td>' + esc(s.taluk) + '<div class="small">' + esc([s.hobli, s.gp, s.village].join(' · ')) + '</div></td>' +
-      '<td>' + (s.group ? 'Vol ' + s.groupNo : '-') + '</td><td>' + esc(given || '-') + '</td><td>' + esc(s.assignedTo || '-') + '</td></tr>';
+      '<td class="n">' + fmtN(s.students) + '</td><td>' + esc(given || '-') + '</td><td>' + esc(s.assignedName || s.assignedTo || '-') +
+      (s.lastVisit ? '<div>' + chip('Visited ' + niceDate(s.lastVisit), 'good') + '</div>' : '') + '</td></tr>';
   });
   fl.innerHTML = h + '</tbody></table></div>';
   var ticked = function () { return Array.prototype.filter.call(fl.querySelectorAll('[data-tick]'), function (c) { return c.checked; }).map(function (c) { return c.dataset.tick; }); };
@@ -2137,7 +2176,7 @@ function screenMap() {
       if (!APP.mapNoteSeen) mapNoteModal();
       var taluks = res.points.map(function (p) { return p.t; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).sort();
       document.getElementById('mf').innerHTML = '<select data-m="taluk"><option value="">All taluks</option>' + taluks.map(function (t) { return '<option' + (MAPF.taluk === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>' +
-        '<select data-m="show">' + [['', 'All schools'], ['given', 'Given to a volunteer'], ['free', 'Not given'], ['visited', 'Visited'], ['notwilling', 'Not willing'], ['caution', 'Not ready or merged'], ['gps', 'Real position saved']]
+        '<select data-m="show">' + [['', 'All schools'], ['given', 'Given to a volunteer'], ['free', 'Not given'], ['visited', 'Visited'], ['notvisited', 'Given, not visited yet'], ['notwilling', 'Not willing'], ['caution', 'Not ready or merged'], ['gps', 'Real position saved']]
           .map(function (x) { return '<option value="' + x[0] + '"' + (MAPF.show === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' +
         '<input type="search" data-m="q" id="mq" placeholder="Search school, village or UDISE" value="' + esc(MAPF.q) + '" style="min-width:220px">';
       document.getElementById('mlegend').innerHTML = [['--map-visited', 'Visited'], ['--map-given', 'Given, not visited yet'], ['--map-free', 'Not given'], ['--map-bad', 'Not willing'], ['--map-caution', 'Not ready or merged']]
@@ -2174,6 +2213,7 @@ function drawMap(fit) {
     if (MAPF.show === 'given' && !p.a) return false;
     if (MAPF.show === 'free' && p.a) return false;
     if (MAPF.show === 'visited' && !p.lv) return false;
+    if (MAPF.show === 'notvisited' && (!p.a || p.lv)) return false;   // v9.11
     if (MAPF.show === 'notwilling' && !p.w) return false;
     if (MAPF.show === 'caution' && !p.c) return false;
     if (MAPF.show === 'gps' && p.k !== 'gps') return false;
@@ -2188,8 +2228,8 @@ function drawMap(fit) {
     var real = p.k === 'gps';
     var m = L.circleMarker([p.la, p.lo], { radius: real ? 7 : 6, color: c, weight: real ? 1 : 2, fillColor: c, fillOpacity: real ? 0.9 : 0.05 });
     m.bindPopup('<b>' + esc(p.n) + '</b><br>' + esc([p.v, p.g, p.h, p.t].filter(String).join(' · ')) + (p.u ? '<br>UDISE ' + esc(p.u) : '') + '<br>' +
-      (p.a ? 'With ' + esc(p.a) : 'Not given') + (p.lv ? '<br>Last visit ' + esc(niceDate(p.lv)) : '') + (p.w ? '<br><b>' + WORDS.notWilling + '</b>' : '') +
-      (p.al ? '<br><b style="color:#b06d00">⚠ Needs attention</b>' : '') + (p.gr ? '<br>Vol ' + p.gr : '') + '<br>' + (real ? '<span style="color:#888">● Exact location (saved at the school)</span>' : '<b style="color:#b06d00">○ Approximate (' + (p.k === 'village' ? 'village' : 'taluk') + '). Please save the live location at your next visit.</b>') + '<br>' +
+      (p.st !== null && p.st !== undefined && p.st !== '' ? fmtN(p.st) + ' students<br>' : '') + (p.a ? 'With ' + esc(p.an || p.a) : 'Not given') + (p.lv ? '<br>Last visit ' + esc(niceDate(p.lv)) : '') + (p.w ? '<br><b>' + WORDS.notWilling + '</b>' : '') +
+      (p.al ? '<br><b style="color:#b06d00">⚠ Needs attention</b>' : '')  + '<br>' + (real ? '<span style="color:#888">● Exact location (saved at the school)</span>' : '<b style="color:#b06d00">○ Approximate (' + (p.k === 'village' ? 'village' : 'taluk') + '). Please save the live location at your next visit.</b>') + '<br>' +
       '<a href="https://www.google.com/maps?q=' + p.la + ',' + p.lo + '" target="_blank" rel="noopener">Open in Google Maps</a> · <a href="#" data-mapopen="' + p.id + '">Open school</a>');
     m.addTo(APP.mapLayer);
     bounds.push([p.la, p.lo]);

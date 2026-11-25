@@ -119,7 +119,7 @@
  */
 
 // ===== START 0.0 Version =====
-var APP_VERSION = '2026-11-24 v9.10';
+var APP_VERSION = '2026-11-25 v9.11';
 // ===== END 0.0 =====
 
 
@@ -561,10 +561,13 @@ function readAllSchools_() {
   read_(tab_('School Status')).rows.forEach(function (r) { status[String(get_(r, 'School ID'))] = r; });
   var corr = readCorrections_();
   var act = activityBySchool_();
+  var names = {};                                  // v9.11: show the person's name instead of the email
+  read_(tab_('Vol tab')).rows.forEach(function (r) { var e = email_(get_(r, 'Login email')); if (e && !names[e]) names[e] = String(clean_(get_(r, 'Name')) || ''); });
   return schoolDataBase_().map(function (b) {
     var s = Object.assign({}, b), id = String(s.id);
     var st = status[id] || {};
     s.assignedTo = email_(get_(st, 'Assigned to'));
+    s.assignedName = s.assignedTo ? (names[s.assignedTo] || s.assignedTo) : '';
     s.assignedOn = get_(st, 'Assigned on') instanceof Date ? ist_(get_(st, 'Assigned on'), 'd MMM yyyy') : '';
     s.notWilling = /^y/i.test(String(clean_(get_(st, 'Not willing'))));
     s.bookGiven = String(clean_(get_(st, 'Book given')));
@@ -622,6 +625,8 @@ function findSchools_(f, person) {
     if (f.show === 'caution' && !s.caution) return false;
     if (f.show === 'notwilling' && !s.notWilling) return false;
     if (f.show === 'mine' && !s.mine) return false;
+    if (f.show === 'visited' && !s.lastVisit) return false;                     // v9.11
+    if (f.show === 'notvisited' && (!s.assignedTo || s.lastVisit)) return false;   // given, not visited yet
     if (q) {
       if (vol) return s.groupNo === Number(vol[1]) || s.udise.indexOf(q) >= 0;
       return (s.name + ' ' + s.village + ' ' + s.gp + ' ' + s.udise).toLowerCase().indexOf(q) >= 0;
@@ -769,7 +774,7 @@ function masked_(person, list) {
   return list.map(function (s) {
     var c = JSON.parse(JSON.stringify(s));
     c.mine = inScope_(emails, s);
-    if (emails !== null && s.assignedTo && !c.mine) c.assignedTo = 'Taken';
+    if (emails !== null && s.assignedTo && !c.mine) { c.assignedTo = 'Taken'; c.assignedName = 'Taken'; }
     return c;
   });
 }
@@ -904,16 +909,20 @@ function groupList_(f, person) {
       no: n, taluk: anchor.taluk, inPref: pref ? sc.some(function (s) { return inPref_(s, pref); }) : true,
       schools: sc.map(function (s) {
         return { id: s.id, name: s.name, taluk: s.taluk, hobli: s.hobli, gp: s.gp, village: s.village, saplings: s.saplings, seeds: s.seeds,
-                 activity: s.activity, assignedTo: s.assignedTo, notWilling: s.notWilling, caution: s.caution, mine: s.mine, alerts: s.alerts || [] };
+                 activity: s.activity, assignedTo: s.assignedTo, assignedName: s.assignedName || s.assignedTo, students: s.students, lastVisit: s.lastVisit || '',
+                 notWilling: s.notWilling, caution: s.caution, mine: s.mine, alerts: s.alerts || [] };
       }),
       saplings: sc.reduce(function (t, s) { return t + (s.saplings || 0); }, 0),
       seeds: sc.reduce(function (t, s) { return t + (s.seeds || 0); }, 0),
-      given: given, state: given === 0 ? 'free' : given === sc.length ? 'given' : 'partly'
+      given: given, state: given === 0 ? 'free' : given === sc.length ? 'given' : 'partly',
+      visited: sc.filter(function (s) { return s.lastVisit; }).length
     };
   }).filter(function (g) {
     if (!g.inPref) return false;
     if (f.taluk && g.taluk !== f.taluk) return false;
-    if (f.show && f.show !== 'all' && g.state !== f.show) return false;
+    if (f.show === 'visited') { if (!g.visited) return false; }                                  // v9.11: groups with a visited school
+    else if (f.show === 'notvisited') { if (!g.given || g.visited) return false; }               // given, none visited yet
+    else if (f.show && f.show !== 'all' && g.state !== f.show) return false;
     if (q) {
       if (qn) return g.no === Number(qn[1]);
       return g.schools.some(function (s) { return (s.name + ' ' + s.village + ' ' + s.gp).toLowerCase().indexOf(q) >= 0; });
@@ -1994,7 +2003,7 @@ function mapPoints_(person) {
     }
     return { id: s.id, n: s.name, u: s.udise, t: s.taluk, h: s.hobli, g: s.gp, v: s.village, la: Math.round(lat * 1e5) / 1e5, lo: Math.round(lng * 1e5) / 1e5,
              k: kind, a: s.assignedTo || '', w: s.notWilling ? 1 : 0, c: s.caution ? 1 : 0, lv: s.lastVisit || '', sp: s.saplings || 0, sd: s.seeds || 0,
-             gr: s.groupNo || '', al: (s.alerts || []).length };
+             gr: s.groupNo || '', al: (s.alerts || []).length, an: s.assignedName || '', st: s.students };
   });
 }
 // ===== END 85.1 =====
