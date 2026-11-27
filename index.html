@@ -77,7 +77,7 @@
 <title>Hasiru Shaale · School adoption</title>
 
 <!-- ===== START P0.0 Version ===== -->
-<meta name="app-version" content="2026-11-25 v9.11">
+<meta name="app-version" content="2026-11-27 v9.12">
 <!-- ===== END P0.0 ===== -->
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -373,7 +373,7 @@ var WORDS = {
   notWilling: 'School not willing to support',
   readOnly: 'You are only viewing this school. To work on it, give it to one of your volunteers (or to yourself) in Assignments.',
   firstTitle: 'First thing on arrival',
-  firstHelp: 'Reminders only. Do them when you are at the school.',
+  firstHelp: 'At the school: take the front photo in the NoteCam app and save the school\'s current location in WhatsApp, then send both to your coordinator. You can also save them here.',
   locTitle: 'School location',
   photoTitle: 'School front photo',
   bookTitle: 'Hasiru Shaale Booklet given to the school?',
@@ -386,9 +386,8 @@ var WORDS = {
   visitOff: 'Record your visit is switched off for now. Please use the physical (A4) form above.',
   partA: 'A · Sapling Health / Seed Status',
   partATick: 'Tick what the school received. Tick both if both.',
-  partB: 'B · Engagement with schools (Awareness & Games)',
-  partC: 'C · Miracle of Mind session',
-  partD: 'D · Any remarks',
+  partB: 'B · Engagement with the school (Games, Awareness & Miracle of Mind)',
+  partD: 'C · Any remarks',
   partDTick: 'This is about (tick all that apply)',
   oldData: 'Any old data to update?',
   health: {
@@ -1086,6 +1085,8 @@ document.addEventListener('change', keepStore, true);
 /* ===== END P5.10 ===== */
 
 /* ===== START P6.1 The visit form ===== */
+var MOM_TICK = 'Miracle of Mind session';
+var LEAVE_TICKS = ['Sent the school\'s photo (taken in NoteCam) to the coordinator', 'Sent the school\'s current location to the coordinator on WhatsApp'];
 // Same questions and headings as the A4 form. Only the date and "How did the visit go?" are needed.
 function visitBox(s) {
   var h = '<h3>📝 ' + WORDS.visitTitle + '</h3>';
@@ -1117,19 +1118,19 @@ function visitFormHtml(s) {
     '<label>Number of saplings given' + num('sGiven') + '</label>' +
     '<label>Were they planted?' + sel('sPlantedYN', yn) + '</label>' +
     '<label class="wide" data-if="sWhyNot">If no, why not?' + txt('sWhyNot') + '</label></div>' +
-    '<div class="nums"><label class="f">Planted' + num('sPlanted') + '</label><label class="f">Alive now' + num('sAlive') + '</label><label class="f">Dead' + num('sDead') + '</label></div>' +
+    '<h4 style="margin:10px 0 4px">Number of saplings</h4><div class="nums"><label class="f">Planted in the ground' + num('sPlanted') + '</label><label class="f">Still alive today' + num('sAlive') + '</label><label class="f">Died' + num('sDead') + '</label></div>' +
     '<div id="vf-toomany"></div>' +
     '<div class="form"><label class="wide">What is the health of the surviving saplings?' + sel('sHealth', L['Health']) + def('sHealth') + '</label></div>' +
     '<label class="f">If some died, why?</label>' + ticks('sWhyDied', L['Why saplings died'] || []) +
-    '<label class="f" data-if="sWhyDiedOther">Other reason' + txt('sWhyDiedOther') + '</label>' +
-    '<div class="form"><label>Do they ask for replacement for dead plants?' + sel('sReplace', yn) + '</label>' +
+    '<label class="f" data-if="sWhyDiedOther">Details (why did they die?)<textarea data-k="sWhyDiedOther" style="min-height:60px"></textarea></label>' +
+    '<div class="form"><label>Are they asking for a replacement for dead plants?' + sel('sReplace', yn) + '</label>' +
     '<label data-if="sReplaceN">If yes, how many?' + num('sReplaceN') + '</label></div>' +
     // v9.6: watering belongs to the saplings only
     '<h4 style="margin-top:12px">Watering</h4><div class="form">' +
     '<label>Who waters the plants?' + sel('wWho', L['Who waters the plants']) + '</label>' +
     '<label data-if="wWhoOther">Name or designation' + txt('wWhoOther') + '</label>' +
     '<label data-if="wOften">How often do they water the plants?' + sel('wOften', L['How often watered']) + '</label>' +
-    '<label data-if="wSource">Where does the water for the plants come from?' + txt('wSource') + '</label></div></div>';
+    '<label data-if="wSource">What is the water source?' + txt('wSource') + '</label></div></div>';
   // v9.7: seeds = number given, sown into packets Yes/No, and why not
   h += '<div class="box" id="vf-seed"><h4>Drumstick seeds</h4><div class="form">' +
     '<label>Number of seeds given' + num('dGiven') + '</label>' +
@@ -1137,20 +1138,21 @@ function visitFormHtml(s) {
     '<label class="wide" data-if="dWhyNot">If no, why not?' + txt('dWhyNot') + '</label></div></div>';
   // B
   // v9.7: only tick what was done
-  h += '<div class="section-h">' + WORDS.partB + '</div><p class="small">Tick what was done with the school.</p>' + ticks('actTicks', ['Games', 'Awareness']);
-  // C (v9.5)
-  h += '<div class="section-h">' + WORDS.partC + '</div>' +
-    '<div class="form"><label>Session conducted?' + sel('momYN', yn) + '</label></div>' +
+  // v9.12: B and C merged (as on the A4 form v7): one tick list, Miracle of Mind numbers when ticked
+  h += '<div class="section-h">' + WORDS.partB + '</div><p class="small">Tick what was done with the school.</p>' + ticks('actTicks', ['Games', 'Awareness', MOM_TICK]) +
+    '<p class="small" data-if="momNums" style="margin:6px 0 2px">How many took part in the Miracle of Mind session?</p>' +
     '<div class="nums" data-if="momNums"><label class="f">Number of students involved' + num('momStudents') + '</label>' +
     '<label class="f">Number of teachers involved' + num('momTeachers') + '</label></div>';
   // D
   h += '<div class="section-h">' + WORDS.partD + '</div><p class="small">' + WORDS.partDTick + '</p>' + ticks('rTicks', L['Remarks ticks'] || []) +
     '<textarea data-k="remarks" placeholder="Write the details here"></textarea>' +
     '<div class="right"><button class="link" type="button" id="vf-olddata">' + WORDS.oldData + '</button></div>';
-  // v9.7: Before you leave (same three lines as the A4 form); ticked when already saved on this school page
-  var fs = s.first || {}, leave = function (done, words) { return '<div style="margin:4px 0">' + (done ? '<span style="color:var(--accent)">✓</span> ' : '<span class="small">☐</span> ') + words + (done ? '' : ' <span class="small">· not yet, see the top of this page</span>') + '</div>'; };
+  // v9.12: Before you leave = the four lines of the A4 form v7. The booklet comes from the school page;
+  // the three "sent to the coordinator" lines are ticks saved with this visit.
+  var fs = s.first || {}, book = /^y/i.test(fs.book || '');
   h += '<div class="box" id="vf-leave"><h4>Before you leave</h4>' +
-    leave(!!fs.location, 'School location updated / saved') + leave(!!fs.photo, 'Front photo of the school taken') + leave(/^y/i.test(fs.book || ''), 'Hasiru Shaale Booklet given') + '</div>';
+    '<div style="margin:4px 0">' + (book ? '<span style="color:var(--accent)">✓</span> ' : '<span class="small">☐</span> ') + 'Hasiru Shaale Booklet given to the school' + (book ? '' : ' <span class="small">· answer it at the top of this page</span>') + '</div>' +
+    '<div class="ticks" style="flex-direction:column;gap:6px">' + LEAVE_TICKS.map(function (x) { return '<label><input type="checkbox" data-multi="leaveTicks" value="' + esc(x) + '"> ' + esc(x) + '</label>'; }).join('') + '</div></div>';
   // photos and save
   h += '<div class="line"></div><label class="btn">📷 Add visit photos (optional, up to 5)<input type="file" id="vf-photos" accept="image/*" multiple hidden></label>' +
     '<span class="small" id="vf-pcount" style="margin-left:8px"></span><div class="thumbs" id="vf-thumbs"></div>' +
@@ -1227,6 +1229,7 @@ function readVisitForm() {
     v[el.dataset.multi] = v[el.dataset.multi] || [];
     if (el.checked) v[el.dataset.multi].push(el.value);
   });
+  v.momYN = (v.actTicks || []).indexOf(MOM_TICK) >= 0 ? 'Yes' : '';   // v9.12: the Miracle of Mind tick
   return v;
 }
 function fillVisitForm(v) {
@@ -1236,13 +1239,15 @@ function fillVisitForm(v) {
   Array.prototype.forEach.call(f.querySelectorAll('[data-multi]'), function (el) { el.checked = (v[el.dataset.multi] || []).indexOf(el.value) >= 0; });
   // an older visit saved with activity rows: tick the kinds it had
   if (!v.actTicks && v.acts) Array.prototype.forEach.call(f.querySelectorAll('[data-multi=actTicks]'), function (el) { el.checked = v.acts.some(function (a) { return a.type === el.value; }); });
+  // a visit saved before v9.12 kept Miracle of Mind as Yes/No
+  if (v.momYN === 'Yes') { var mm = f.querySelector('[data-multi=actTicks][value="' + MOM_TICK + '"]'); if (mm) mm.checked = true; }
 }
 // shows or hides questions, the meaning of the chosen health, and the red warning when more were planted than given
 function visitShow() {
   var v = readVisitForm(), show = function (sel, on) { Array.prototype.forEach.call(document.querySelectorAll(sel), function (el) { el.hidden = !on; }); };
   show('#vf-sap', v.saplingsTicked); show('#vf-seed', v.seedsTicked);
   show('[data-if=sWhyNot]', v.sPlantedYN === 'No');
-  show('[data-if=sWhyDiedOther]', (v.sWhyDied || []).indexOf('Other') >= 0);
+  show('[data-if=sWhyDiedOther]', (v.sWhyDied || []).length > 0);   // v9.12: details for any reason
   show('[data-if=sReplaceN]', v.sReplace === 'Yes');
   show('[data-if=momNums]', v.momYN === 'Yes');
   show('[data-if=dWhyNot]', v.dSown === 'No');
@@ -1353,7 +1358,7 @@ function viewVisitForm(v) {
   fillVisitForm(v.form || {});
   visitShow();
   Array.prototype.forEach.call(f.querySelectorAll('input, select, textarea'), function (el) { el.disabled = true; });
-  ['vf-save', 'vf-discard', 'vf-olddata', 'vf-leave', 'vf-pcount', 'vf-thumbs', 'vf-fixgiven', 'vdraftmsg'].forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = true; });
+  ['vf-save', 'vf-discard', 'vf-olddata', 'vf-pcount', 'vf-thumbs', 'vf-fixgiven', 'vdraftmsg'].forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = true; });
   var ph = document.getElementById('vf-photos'); if (ph && ph.closest('label')) ph.closest('label').hidden = true;
   document.getElementById('vf-close').addEventListener('click', function () { box.remove(); });
   box.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2285,20 +2290,19 @@ var FAQS = [
     ['What do the coloured labels on a school mean?', '<b>Visit due</b>: no visit recorded for 120 days.<br><b>Call due</b>: no call logged for 30 days.<br><b>Location not saved yet / Front photo not taken yet</b>: do these on your next visit.<br><b>Orange ⚠ label</b> (Pit digging / tree guard, Concern, Follow up): your coordinator or the office has a point to act on.<br><b>Red border</b>: the school said it is not willing to support.']
   ] },
   { for: 'Volunteers', title: 'At the school', items: [
-    ['What should I do first when I reach the school?', 'Open the school in the app and use the box <b>First thing on arrival</b>: save the school\'s location and take its front photo. Both take a minute and help everyone find the school later.'],
+    ['What should I do first when I reach the school?', '<b>1.</b> Take the school\'s <b>front photo</b> in the <b>NoteCam</b> app. <b>2.</b> Save the school\'s <b>current location</b> in <b>WhatsApp</b>. Send both to your coordinator. You can also save them in the app, in the box <b>First thing on arrival</b>.'],
     ['How do I save the school\'s location?', 'Stand at the school gate and tap <b>📍 Save my current location</b>. Allow location when the phone asks. If a location is already saved and it is wrong, tap <b>Change location</b> and write why.'],
     ['The location does not work on my phone. What can I do?', 'Turn on Location in the phone settings. In Chrome, tap the lock icon next to the address, then Permissions, Location, Allow. If it still fails, open Google Maps, drop a pin on the school, tap Share, copy the link, then tap <b>Location not working? Paste a Google Maps link</b> and paste it there.'],
     ['How do I take the front photo?', 'In <b>School front photo</b>, take a clear picture of the school\'s front with its name board, if there is one. The app makes the photo smaller before sending, so it works on slow networks.'],
     ['Where do I mark that I gave the Hasiru Shaale booklet?', 'In the same box, answer <b>Hasiru Shaale Booklet given to the school?</b>'],
-    ['Is there a checklist before I leave?', 'Yes. At the end of <b>Record your visit</b> there is a <b>Before you leave</b> box: School location updated / saved, Front photo of the school taken, Hasiru Shaale Booklet given. Each line shows ✓ once it is done.']
+    ['Is there a checklist before I leave?', 'Yes. At the end of <b>Record your visit</b> there is a <b>Before you leave</b> box: Hasiru Shaale Booklet given to the school, Sent the school\'s photo (taken in NoteCam) to the coordinator, Sent the school\'s current location to the coordinator on WhatsApp. On the paper A4 form there is one more: Sent a photo of this visit form (all filled in) to the coordinator.'],
   ] },
   { for: 'Volunteers', title: 'Recording a visit', items: [
     ['How do I record a visit?', 'Open the school and go to <b>Record your visit</b>. Fill the form and tap Save at the bottom. Only <b>How did the visit go</b> is required; fill the rest as it applies.'],
     ['What goes in "Who all accompanied you"?', 'The names of people who came with you, for example other volunteers or local helpers.'],
     ['Section A: what if the school got saplings, seeds or both?', 'Tick <b>Saplings</b>, <b>Seeds</b> or both. Each tick opens its own questions.<br><b>Saplings</b>: how many are alive, their health, and how they are being watered.<br><b>Seeds</b>: how many seeds were given, and whether they were sown into packets (Yes / No). If No, write why not.'],
-    ['Section B: what do I tick for engagement?', 'Tick <b>Games</b> and / or <b>Awareness</b> if you did them with the children during the visit.'],
-    ['Section C: what is the Miracle of Mind question?', 'Say Yes if a Miracle of Mind session was done at the school, then write how many students and how many teachers took part.'],
-    ['Section D: how do I write remarks?', 'Write what you saw in your own words. Tick a box if it applies:<br><b>Pit digging / tree guard</b>, <b>Concern</b> or <b>Follow up</b>: your coordinator gets an alert so they can act.<br><b>School not willing to support</b>: tick it only if the school says no, and write the reason in the remarks.'],
+    ['Section B: what do I tick for engagement?', 'Tick <b>Games</b>, <b>Awareness</b> and / or <b>Miracle of Mind session</b>, whatever you did with the children during the visit. If you tick Miracle of Mind, write how many students and how many teachers took part.'],
+    ['Section C: how do I write remarks?', 'Write what you saw in your own words. Tick a box if it applies:<br><b>Pit digging / tree guard</b>, <b>Concern</b> or <b>Follow up</b>: your coordinator gets an alert so they can act.<br><b>School not willing to support</b>: tick it only if the school says no, and write the reason in the remarks.'],
     ['Can I add photos?', 'Yes, up to 5 photos per visit. Clear photos of the saplings and the children\'s activities help the most.'],
     ['I lost network in the middle. Is my work lost?', 'No. The form is kept on your phone as a draft until you save or discard it. Open the school again when you have network and tap Save.'],
     ['I made a mistake after saving. Can I fix it?', 'Yes, you can edit or delete your own visit within 72 hours of saving it. After that, ask the office.'],
