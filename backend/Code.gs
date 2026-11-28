@@ -119,7 +119,7 @@
  */
 
 // ===== START 0.0 Version =====
-var APP_VERSION = '2026-11-27 v9.12';
+var APP_VERSION = '2026-11-28 v9.13';
 // ===== END 0.0 =====
 
 
@@ -1023,7 +1023,7 @@ function refreshVolTab() {
     var src = read_(signups);
     // If the import is not working at the moment (#REF!, Loading...), do nothing.
     var firstCell = String(signups.getRange(1, 1).getDisplayValue() || '');
-    if (/^#|loading/i.test(firstCell) || !('email' in src.col)) {
+    if (/^#|loading/i.test(firstCell) || !('email' in src.col || 'email address' in src.col)) {   // v9.13: Google Forms may head it "Email address"
       log_('refresh', 'Vol tab refresh skipped', 'The sign-up tab is not readable right now: ' + firstCell);
       return { added: 0, note: 'Sign-up tab not readable right now.' };
     }
@@ -1036,7 +1036,7 @@ function refreshVolTab() {
 
     var add = [];
     src.rows.forEach(function (r) {
-      var raw = clean_(get_(r, 'Email'));
+      var raw = clean_(get_(r, 'Email')) || clean_(get_(r, 'Email address'));
       var key = email_(raw);
       if (!key || have[key]) return;                 // blank, already there, or repeated email
       have[key] = true;
@@ -1101,7 +1101,7 @@ function volunteerList_(person) {
   var signup = {};
   try {
     read_(userTab_('TAB_SIGNUPS')).rows.forEach(function (r) {
-      var k = email_(get_(r, 'Email'));
+      var k = email_(get_(r, 'Email') || get_(r, 'Email address'));
       if (k && !signup[k]) signup[k] = r;
     });
   } catch (e) { /* sign-up tab not readable right now: show the list without those details */ }
