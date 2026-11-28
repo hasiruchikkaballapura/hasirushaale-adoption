@@ -119,7 +119,7 @@
  */
 
 // ===== START 0.0 Version =====
-var APP_VERSION = '2026-11-28 v9.13';
+var APP_VERSION = '2026-11-28 v9.14';
 // ===== END 0.0 =====
 
 
@@ -1066,12 +1066,42 @@ function refreshVolTab() {
 
 // ===== START 40.2 Email spelling check =====
 // Returns a short note for the admin when an email looks mistyped. Nothing is blocked.
+// v9.14: catches what can be caught from the address alone: an invalid address, a top-level ending
+// that is almost surely a typo (.con, .cmo, .comm ...), and a domain that is one or two letters away
+// from a common one (gamil.com, gmail.co, hotmial.com, outlok.com ...). A typo in the part before
+// the @ cannot be seen: such a person simply cannot sign in until the email is fixed in the Vol tab.
+var EMAIL_DOMAINS = ['gmail.com', 'yahoo.com', 'yahoo.co.in', 'yahoo.in', 'hotmail.com', 'outlook.com', 'outlook.in', 'live.com',
+                     'rediffmail.com', 'icloud.com', 'me.com', 'protonmail.com', 'proton.me', 'zoho.com',
+                     'sadhguru.org', 'ishafoundation.org', 'ishaoutreach.org'];
+var EMAIL_OK_DOMAINS = ['googlemail.com', 'ymail.com', 'mail.com', 'email.com', 'gmx.com', 'aol.com', 'live.in', 'hotmail.co.in',
+                        'yahoo.co.uk', 'outlook.co.in', 'msn.com', 'zohomail.in', 'rocketmail.com'];   // real, never flagged
 function emailWarning_(e) {
-  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(e)) return 'Check email spelling (not a valid email)';
+  e = String(e || '');
+  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(e) || /\.\.|@\.|\.@|^\.|\.$/.test(e)) return 'Check email spelling (not a valid email)';
   var domain = e.split('@')[1];
-  var typos = ['gamil.com', 'gmial.com', 'gmai.com', 'gmail.co', 'gmal.com', 'gnail.com', 'gmail.con', 'gmaill.com', 'gmail.cm', 'yahho.com', 'yaho.com'];
-  if (typos.indexOf(domain) >= 0) return 'Check email spelling (' + domain + ')';
+  if (EMAIL_DOMAINS.indexOf(domain) >= 0 || EMAIL_OK_DOMAINS.indexOf(domain) >= 0) return '';
+  var best = '', bestD = 9;
+  EMAIL_DOMAINS.forEach(function (d) {
+    var k = editDistance_(domain, d);
+    if (k < bestD) { bestD = k; best = d; }
+  });
+  if (bestD <= (best.length >= 8 ? 2 : 1)) return 'Check email spelling (' + domain + ': did you mean ' + best + '?)';
+  if (/\.(con|cpm|cmo|ocm|comm|coom|cm|om|vom|xom|co\.n|con\.in)$/.test(domain)) return 'Check email spelling (' + domain + ')';
   return '';
+}
+// Letters to add, remove, change or swap (two neighbours) to turn a into b.
+function editDistance_(a, b) {
+  var d = [], i, j;
+  for (i = 0; i <= a.length; i++) { d[i] = [i]; }
+  for (j = 0; j <= b.length; j++) { d[0][j] = j; }
+  for (i = 1; i <= a.length; i++) {
+    for (j = 1; j <= b.length; j++) {
+      var cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a.charAt(i - 1) === b.charAt(j - 2) && a.charAt(i - 2) === b.charAt(j - 1)) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
 }
 // ===== END 40.2 =====
 
